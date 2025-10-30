@@ -9,4 +9,11 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateCategory extends CreateRecord
 {
     protected static string $resource = CategoryResource::class;
+    protected function getHeaderActions(): array
+    {
+        return [
+            Actions\CreateAction::make()
+            ->icon('heroicon-o-plus-circle')
+        ];
+    }
 }

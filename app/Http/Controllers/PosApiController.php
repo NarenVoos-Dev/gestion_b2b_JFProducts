@@ -102,6 +102,12 @@ class PosApiController extends Controller
      */
     public function addToCartB2B(Request $request)
     {
+        Log::info('=== addToCartB2B: Inicio ===', [
+            'product_id' => $request->product_id,
+            'quantity' => $request->quantity,
+            'user_id' => auth()->id()
+        ]);
+        
         $validator = Validator::make($request->all(), [
             'product_id' => 'required|exists:products,id',
             'quantity' => 'required|numeric|min:1',
@@ -109,22 +115,33 @@ class PosApiController extends Controller
         ]);
 
         if ($validator->fails()) {
+            Log::warning('Validación fallida', ['errors' => $validator->errors()->toArray()]);
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
         $product = Product::with('unitOfMeasure')->findOrFail($request->product_id);
         $unit = UnitOfMeasure::findOrFail($request->unit_of_measure_id);
+        
+        Log::info('Producto y unidad validados', [
+            'product' => $product->name,
+            'unit' => $unit->name,
+            'price' => $product->sale_price
+        ]);
 
         // Obtener carrito de la sesión
         $cart = session()->get('b2b_cart', []);
-
         $cartKey = $request->product_id . '_' . $request->unit_of_measure_id;
 
         if (isset($cart[$cartKey])) {
-            // Si ya existe, aumentar cantidad
+            $oldQty = $cart[$cartKey]['quantity'];
             $cart[$cartKey]['quantity'] += $request->quantity;
+            
+            Log::info('Cantidad actualizada en carrito', [
+                'product' => $product->name,
+                'old_qty' => $oldQty,
+                'new_qty' => $cart[$cartKey]['quantity']
+            ]);
         } else {
-            // Agregar nuevo item
             $cart[$cartKey] = [
                 'product_id' => $product->id,
                 'name' => $product->name,
@@ -136,14 +153,28 @@ class PosApiController extends Controller
                 'tax_rate' => $product->tax_rate ?? 0,
                 'image' => $product->image_url ?? null,
             ];
+            
+            Log::info('Nuevo producto agregado', [
+                'product' => $product->name,
+                'quantity' => $request->quantity
+            ]);
         }
 
         session()->put('b2b_cart', $cart);
+        
+        $cartCount = count($cart);
+        $totalItems = array_sum(array_column($cart, 'quantity'));
+        
+        Log::info('=== addToCartB2B: Éxito ===', [
+            'productos_unicos' => $cartCount,
+            'items_totales' => $totalItems
+        ]);
 
         return response()->json([
             'success' => true,
             'message' => 'Producto agregado al carrito',
-            'cart_count' => count($cart),
+            'cart_count' => $cartCount,
+            'total_items' => $totalItems,
             'cart' => $cart,
         ]);
     }

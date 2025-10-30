@@ -1,81 +1,100 @@
 <?php
+
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\ProductResource\Pages;
+use App\Filament\Resources\ProductResource\RelationManagers;
 use App\Models\Product;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Grid;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Toggle;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\IconColumn;
 use Illuminate\Database\Eloquent\Builder;
-use App\Filament\Resources\ProductResource\RelationManagers;
 
 class ProductResource extends Resource
 {
     protected static ?string $model = Product::class;
-
     protected static ?string $navigationIcon = 'heroicon-o-archive-box';
-
-    protected static ?string $modelLabel = 'Productos';
+    protected static ?string $modelLabel = 'Producto';
     protected static ?string $pluralModelLabel = 'Productos';
-    protected static ?string $navigationGroup = 'Catalogos';
+    protected static ?string $navigationGroup = 'Catálogos'; // Movido a Catálogos
     protected static ?int $navigationSort = 31;
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                Forms\Components\Hidden::make('business_id')
-                    ->default(auth()->user()->business_id),
+                Forms\Components\Hidden::make('business_id')->default(auth()->user()->business_id),
                 
-                Forms\Components\TextInput::make('name')
-                    ->required()
-                    ->maxLength(255)
-                    ->label('Nombre del producto')
-                    ->columnSpan('full'),
+                Section::make('Información Principal')
+                    ->schema([
+                        TextInput::make('name')
+                            ->required()
+                            ->maxLength(255)
+                            ->label('Nombre del Producto (Descripción)'),
+                        Grid::make(2)
+                            ->schema([
+                                TextInput::make('sku')->label('SKU (Código Interno)')->maxLength(255)->unique(ignoreRecord: true),
+                                TextInput::make('barcode')->label('Código de Barras')->maxLength(255),
+                            ]),
+                    ]),
                 
-                Forms\Components\Select::make('category_id')
-                    ->relationship('category', 'name')
-                    ->searchable()
-                    ->preload()
-                    ->createOptionForm([
-                        Forms\Components\TextInput::make('name')
-                            ->required(),
-                        Forms\Components\Hidden::make('business_id')
-                            ->default(auth()->user()->business_id)
-                    ])
-                    ->label('Categoría'),
-                    
-                Forms\Components\TextInput::make('sku')
-                    ->label('SKU (Código)')
-                    ->maxLength(255),
+                Section::make('Clasificación')
+                    ->schema([
+                        Select::make('category_id') // Grupo Farmacológico
+                            ->relationship('category', 'name')
+                            ->label('Grupo Farmacológico (Categoría)')
+                            ->searchable()->preload()->createOptionForm([
+                                Forms\Components\TextInput::make('name')->required(),
+                                Forms\Components\Hidden::make('business_id')->default(auth()->user()->business_id)
+                            ]),
+                        Select::make('product_type_id')
+                            ->relationship('productType', 'name')
+                            ->label('Tipo de Producto')
+                            ->required()->searchable()->preload(),
+                        Select::make('product_channel_id')
+                            ->relationship('productChannel', 'name')
+                            ->label('Canal')
+                            ->searchable()->preload(),
+                    ])->columns(3),
                 
-                // --- CAMBIO PRINCIPAL AQUÍ ---
-                // Reemplazamos el campo de texto por un menú desplegable
-                Forms\Components\Select::make('unit_of_measure_id')
-                    ->relationship('unitOfMeasure', 'name')
-                    ->searchable()
-                    ->preload()
-                    ->required()
-                    ->label('Unidad de Medida Base')
-                    ->helperText('La unidad en que se vende y se controla el stock.'),
-
-                Forms\Components\TextInput::make('price')
-                    ->label('Precio de Venta')
-                    ->required()
-                    ->numeric()
-                    ->prefix('$'),
+                Section::make('Detalles Farmacéuticos')
+                    ->schema([
+                        TextInput::make('molecule')->label('Molécula'),
+                        TextInput::make('concentration')->label('Concentración'),
+                        Select::make('pharmaceutical_form_id')
+                            ->relationship('pharmaceuticalForm', 'name')
+                            ->label('Forma Farmacéutica')
+                            ->searchable()->preload(),
+                        TextInput::make('commercial_presentation')->label('Presentación Comercial'),
+                        TextInput::make('commercial_name')->label('Nombre Comercial'),
+                        TextInput::make('laboratory')->label('Laboratorio'),
+                    ])->columns(3),
                 
-                Forms\Components\TextInput::make('cost')
-                    ->label('Costo de Compra (por unidad base)')
-                    ->numeric()
-                    ->prefix('$'),
-                
-                /*Forms\Components\TextInput::make('stock')
-                    ->label('Stock Actual (en unidad base)')
-                    ->numeric()
-                    ->default(0),*/
+                Section::make('Regulación y Precios')
+                    ->schema([
+                        TextInput::make('price')->label('Precio de Venta')->required()->numeric()->prefix('$'),
+                        Select::make('unit_of_measure_id')
+                            ->relationship('unitOfMeasure', 'name')
+                            ->required()->searchable()->preload()->label('Unidad de Medida Base'),
+                        TextInput::make('invima_registration')->label('Registro INVIMA'),
+                        TextInput::make('cum')->label('CUM'),
+                        TextInput::make('atc_code')->label('Código ATC'),
+                        Grid::make(3)
+                            ->schema([
+                                Toggle::make('controlled')->label('Es Controlado'),
+                                Toggle::make('cold_chain')->label('Cadena de Frío'),
+                                Toggle::make('is_active')->label('Producto Activo')->default(true),
+                            ]),
+                    ])->columns(3),
             ]);
     }
 
@@ -83,41 +102,40 @@ class ProductResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('name')
-                    ->searchable()
-                    ->label('Nombre'),
-                Tables\Columns\TextColumn::make('category.name')
-                    ->label('Categoría')
-                    ->badge(),
-                Tables\Columns\TextColumn::make('price')
-                    ->money('cop')
-                    ->sortable()
-                    ->label('Precio'),
-                Tables\Columns\TextColumn::make('cost')
-                    ->money('cop')
-                    ->sortable()
-                    ->label('Costo'),
-                Tables\Columns\TextColumn::make('total_stock')
+                TextColumn::make('name')->label('Nombre')->searchable()->sortable(),
+                TextColumn::make('sku')->label('SKU')->searchable(),
+                TextColumn::make('category.name')->label('Grupo')->badge()->searchable(),
+                TextColumn::make('productType.name')->label('Tipo')->badge(),
+                TextColumn::make('price')->money('cop')->sortable()->label('Precio'),
+                
+                // Columna de Stock Total (lee el accesor del modelo)
+                TextColumn::make('total_stock')
                     ->label('Stock Total')
                     ->numeric()
                     ->sortable(),
-                // Mostramos el nombre de la unidad de medida desde la relación
-                Tables\Columns\TextColumn::make('unitOfMeasure.name')
-                    ->label('Unidad'),
+                
+                IconColumn::make('is_active')->label('Activo')->boolean(),
             ])
             ->filters([
                 //
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
                 Tables\Actions\ViewAction::make(),
+                Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+    
+    public static function getRelations(): array
+    {
+        return [
+            // <<< CAMBIO: Apuntamos al nuevo RelationManager de Lotes >>>
+            RelationManagers\ProductLotsRelationManager::class,
+        ];
     }
     
     public static function getPages(): array
@@ -128,17 +146,10 @@ class ProductResource extends Resource
             'view' => Pages\ViewProduct::route('/{record}'),
             'edit' => Pages\EditProduct::route('/{record}/edit'),
         ];
-    }
+    }    
     
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()->where('business_id', auth()->user()->business_id);
-    }
-
-    public static function getRelations(): array
-    {
-        return [
-            RelationManagers\InventoryRelationManager::class,
-        ];
     }
 }

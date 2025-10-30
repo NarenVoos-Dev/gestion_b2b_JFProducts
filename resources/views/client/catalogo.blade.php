@@ -41,17 +41,26 @@
 <script>
 
     let allProducts = [];
+    const csrfToken = $('meta[name="csrf-token"]').attr('content');
+    // funcion para hacer peticiones al servidor 
+    function ajaxRequest(url, method, data = {}) {
+        return $.ajax({
+            url: url,
+            method: method,
+            headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' },
+            data: data
+        }).fail(function(xhr) {
+            console.error('Error AJAX:', xhr);
+            const error = xhr.responseJSON;
+            showAlert('Error Inesperado', error?.message || 'Problema de comunicación con el servidor.', 'error');
+        });
+    }
     document.addEventListener('DOMContentLoaded', function() {
         // Guardamos los productos iniciales que pasamos desde el controlador
         allProducts = @json($products);
         //console.log(allProducts)
         const productsGrid = document.getElementById('productsGrid');
         const csrfToken = $('meta[name="csrf-token"]').attr('content');
-
-        // Función para hacer peticiones al servidor
-        function ajaxRequest(url, method, data = {}) {
-            return $.ajax({ url, method, headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' }, data });
-        }
 
         // Función para renderizar los productos en el HTML
         function renderProducts(productsToRender) {
@@ -101,6 +110,9 @@
                    
                 }
 
+                const price = parseFloat(product.sale_price || product.price || 0);
+
+
                 // Lógica para el badge (si existe en tus datos de producto)
                 const badgeHtml = product.badge ? 
                     `<div class="absolute top-2 right-2 px-2 py-1 rounded-lg text-xs font-bold uppercase ${
@@ -139,7 +151,7 @@
                             <!-- Precio y Stock -->
                             <div class="items-center mb-6">
                                 <div class="text-2xl font-extrabold bg-gradient-to-r from-[#0f4db3] to-[#028dff] bg-clip-text text-transparent">
-                                    $${parseFloat(product.price).toLocaleString('es-CO')}
+                                    $${price.toLocaleString('es-CO')}
                                 </div>
                                 
                                 <div class="flex items-center gap-1 p-1 bg-[#0f4db3]/5 rounded-md">
@@ -217,7 +229,7 @@
             // Hacemos la llamada a la API que ya tienes en PosApiController
             ajaxRequest('{{ route("api.b2b.products.search") }}', 'GET', data)
                 .done(function(products) {
-                    // Una vez que el servidor responde, renderizamos los productos
+                    allProducts = products;
                     renderProducts(products);
                 })
                 .fail(function() {
@@ -342,6 +354,111 @@
 
         input.val(newValue);
     }
+
+    
+function quickAddToCart(productId) {
+        console.log('dentro de quickAdd', productId)
+        const product = allProducts.find(p => p.id === productId);
+        if (!product) return;
+        const data = {
+            product_id: productId,
+            quantity: 1, 
+            unit_of_measure_id: product.unit_of_measure_id
+        };
+
+        // Llamamos a la nueva ruta de la API
+        ajaxRequest('{{ route("api.b2b.cart.add") }}', 'POST', data)  
+            .done(function(response) {
+                if (response.success) {
+                    showNotification(response.message, 'success');
+                    // Actualizamos el contador del carrito en la cabecera
+                    document.getElementById('cartBadge').textContent = response.cart_count;
+                }
+            });
+    }
+
+    function renderCart(cartData) {
+        const cartItemsContainer = document.getElementById('cartItems');
+        const cartTotalContainer = document.getElementById('cartTotal');
+        const cartTitle = document.getElementById('cartTitle');
+
+        if (!cartData || cartData.cart.length === 0) {
+            cartItemsContainer.innerHTML = `<div class="text-center py-20 ...">Tu carrito está vacío</div>`;
+            cartTotalContainer.innerHTML = '';
+            cartTitle.textContent = 'Mi Carrito';
+            updateCartBadge(0);
+            return;
+        }
+        
+        // Renderizar items
+        cartItemsContainer.innerHTML = cartData.cart.map(item => {
+            const cartKey = `${item.product_id}_${item.unit_of_measure_id}`;
+            return `
+                <div class="flex gap-4 py-5 border-b border-indigo-500/10">
+                    <div class="w-20 h-20 ...">${item.image ?? '📦'}</div>
+                    <div class="flex-1">
+                        <p class="font-bold ...">${item.name}</p>
+                        <p class="text-indigo-500 ...">$${parseFloat(item.price).toLocaleString('es-CO')} c/u</p>
+                        <div class="flex items-center gap-3">
+                            <button onclick="updateCartQuantity('${cartKey}', -1)" class="...">-</button>
+                            <span class="px-4 font-bold">${item.quantity}</span>
+                            <button onclick="updateCartQuantity('${cartKey}', 1)" class="...">+</button>
+                            <button onclick="removeFromCart('${cartKey}')" class="...">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Renderizar totales
+        const summary = cartData.summary;
+        cartTotalContainer.innerHTML = `
+            <div class="p-4 bg-white rounded-lg ...">
+                <div class="flex justify-between ..."><span>Subtotal:</span><span>$${summary.subtotal.toLocaleString('es-CO')}</span></div>
+                <div class="flex justify-between ..."><span>IVA:</span><span>$${summary.tax.toLocaleString('es-CO')}</span></div>
+            </div>
+            <div class="flex justify-between text-2xl ...">
+                <span>Total Final:</span>
+                <span class="text-[#0f4db3]">$${summary.total.toLocaleString('es-CO')}</span>
+            </div>
+            <button class="w-full py-4 ...">Procesar Pedido</button>
+        `;
+
+        // Actualizar título y contador
+        cartTitle.textContent = `Mi Carrito (${summary.item_count})`;
+        updateCartBadge(summary.item_count);
+    }
+
+    // <<< AÑADE ESTA NUEVA FUNCIÓN >>>
+    function loadCart() {
+        ajaxRequest('{{ route("api.b2b.cart.get") }}', 'GET')
+            .done(function(response) {
+                renderCart(response);
+            })
+            .fail(function() {
+                showAlert('Error', 'No se pudo cargar el carrito.', 'error');
+            });
+    }
+
+    // <<< MODIFICA TU FUNCIÓN PARA ABRIR EL CARRITO >>>
+    function toggleCart() {
+        const cartPanel = document.getElementById('cartPanel');
+        const overlay = document.getElementById('sidebarOverlay');
+        
+        // Si estamos abriendo el carrito, cargamos los datos
+        if (cartPanel.classList.contains('translate-x-full')) {
+            loadCart();
+        }
+
+        cartPanel.classList.toggle('translate-x-full');
+        overlay.classList.toggle('opacity-0');
+        overlay.classList.toggle('invisible');
+    }
+
+
+    
+
+
 
     // (Opcional) Cierra el modal al presionar la tecla Escape
     $(document).on('keydown', function(e) {

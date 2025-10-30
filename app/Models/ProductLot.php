@@ -2,32 +2,34 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\Pivot;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class Inventory extends Model
+class ProductLot extends Model
 {
-    protected $table = 'inventory';
-    public $incrementing = true;
+    use HasFactory;
+
     protected $fillable = [
         'product_id',
         'location_id',
-        'stock',
+        'lot_number',
+        'expiration_date',
+        'quantity',
+        'cost',
         'stock_minimo',
     ];
-/*
+
     protected $casts = [
-        'stock' => 'decimal:2',
+        'expiration_date' => 'date',
+        'quantity' => 'decimal:2',
+        'cost' => 'decimal:2',
         'stock_minimo' => 'decimal:2',
     ];
 
-    public function product()
-    {
-        return $this->belongsTo(Product::class);
-    }*/
-
-     public function product(): BelongsTo
+    public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
     }

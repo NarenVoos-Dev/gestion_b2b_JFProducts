@@ -7,6 +7,7 @@ use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use App\Models\Product;
+
 use App\Models\StockMovement;
 use App\Models\Inventory;
 use Filament\Notifications\Notification;
@@ -19,38 +20,34 @@ class CreateStockAdjustment extends CreateRecord
     {
         return DB::transaction(function () use ($data) {
             
-            // <<< PUNTO CLAVE: Aseguramos que las variables se definan aquí >>>
-            $productId = $data['product_id'];
-            $locationId = $data['location_id'];
             $quantity = (float)$data['quantity'];
             
-            // Buscamos el registro de inventario específico
-            $inventory = Inventory::where('product_id', $productId)
-                ->where('location_id', $locationId)
-                ->first();
-
-            // 1. Validar si es una salida y hay suficiente stock EN ESA BODEGA
-            if ($data['type'] === 'salida' && (!$inventory || $inventory->stock < $quantity)) {
-                $stockActual = $inventory ? $inventory->stock : 0;
-                throw new Exception("No se puede realizar la salida. Stock actual en esta bodega: {$stockActual}.");
+            // 1. Encontrar el lote específico
+            $lot = ProductLot::findOrFail($data['product_lot_id']);
+            
+            // 2. Validar si es una salida y hay suficiente stock
+            if ($data['type'] === 'salida' && $lot->quantity < $quantity) {
+                Notification::make()
+                    ->title('Error de Stock')
+                    ->body("No hay suficiente stock en el lote {$lot->lot_number}. Stock actual: {$lot->quantity}.")
+                    ->danger()
+                    ->send();
+                $this->halt();
             }
 
-            // 2. Crear el registro del ajuste
+            // 3. Crear el registro del ajuste
             $adjustment = static::getModel()::create($data);
 
-            // 3. Actualizar el stock en la tabla 'inventory'
+            // 4. Actualizar el stock del LOTE
             if ($data['type'] === 'entrada') {
-                Inventory::updateOrCreate(
-                    ['product_id' => $productId, 'location_id' => $locationId],
-                    ['stock' => DB::raw("stock + {$quantity}")]
-                );
-            } else { // Salida
-                $inventory->decrement('stock', $quantity);
+                $lot->increment('quantity', $quantity);
+            } else {
+                $lot->decrement('quantity', $quantity);
             }
             
-            // 4. Registrar el movimiento para auditoría
+            // 5. Registrar el movimiento para auditoría
             StockMovement::create([
-                'product_id' => $productId,
+                'product_id' => $data['product_id'],
                 'type' => $data['type'],
                 'quantity' => $quantity,
                 'source_type' => get_class($adjustment),

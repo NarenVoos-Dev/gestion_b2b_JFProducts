@@ -185,16 +185,48 @@ class ClientController extends Controller
      */
     public function viewCart()
     {
+        Log::info('=== Inicio viewCart ===');
+        
         $user = auth()->user();
+        Log::info('Usuario accediendo al carrito', [
+            'user_id' => $user->id,
+            'client_id' => $user->client_id
+        ]);
         
         if (!$user->client_id) {
+            Log::warning('Acceso denegado: usuario sin client_id', ['user_id' => $user->id]);
             abort(403, 'Acceso no autorizado');
         }
 
         $client = Client::findOrFail($user->client_id);
+        Log::info('Cliente validado', ['client_id' => $client->id, 'client_name' => $client->name ?? 'N/A']);
+        
         $cart = session()->get('b2b_cart', []);
+        $cartCount = count($cart);
+        
+        Log::info('Carrito obtenido', [
+            'total_items' => $cartCount,
+            'session_id' => substr(session()->getId(), 0, 10) . '...'
+        ]);
 
-        return view('client.cart', compact('client', 'cart'));
+        // Calculamos los totales en el backend
+        $subtotal = 0;
+        foreach ($cart as $item) {
+            $subtotal += ($item['price'] ?? 0) * ($item['quantity'] ?? 0);
+        }
+        
+        Log::info('Totales calculados', [
+            'items_count' => $cartCount,
+            'subtotal' => $subtotal
+        ]);
+        
+        if ($cartCount === 0) {
+            Log::info('Usuario viendo carrito vacío');
+        }
+        
+        Log::info('=== Fin viewCart - Vista renderizada ===');
+
+        return view('client.cart', compact('client', 'cart', 'subtotal'));
     }
      /**
      * Vista de listado de pedidos

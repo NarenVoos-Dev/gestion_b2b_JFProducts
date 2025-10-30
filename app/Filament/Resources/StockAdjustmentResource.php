@@ -10,6 +10,11 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Filament\Forms\Get;
+use Filament\Forms\Set;
+use App\Models\Location;
+use App\Models\Product;
+use App\Models\ProductLot;
 
 class StockAdjustmentResource extends Resource
 {
@@ -27,38 +32,64 @@ class StockAdjustmentResource extends Resource
     public static function form(Form $form): Form
     {
         return $form
-            ->schema([
-                Forms\Components\Hidden::make('business_id')->default(auth()->user()->business_id),
-                Forms\Components\Select::make('location_id')
+        ->schema([
+            Forms\Components\Hidden::make('business_id')->default(auth()->user()->business_id),
+            
+            Select::make('location_id')
                 ->label('Bodega / Sucursal')
-                ->relationship('location', 'name')
+                ->options(Location::query()->where('business_id', auth()->user()->business_id)->pluck('name', 'id'))
+                ->live() // Hace que el formulario sea reactivo
+                ->afterStateUpdated(fn (Set $set) => $set('product_id', null))
                 ->required(),
-                Forms\Components\Select::make('product_id')
-                    ->label('Producto')
-                    ->options(\App\Models\Product::query()->pluck('name', 'id'))
-                    ->required()
-                    ->searchable()
-                    ->preload(),
-                
-                Forms\Components\Select::make('type')
-                    ->label('Tipo de Ajuste')
-                    ->options([
-                        'entrada' => 'Entrada (Sumar al stock)',
-                        'salida' => 'Salida (Restar del stock)',
-                    ])
-                    ->required(),
 
-                Forms\Components\TextInput::make('quantity')
-                    ->label('Cantidad')
-                    ->helperText('La cantidad se ajustará en la unidad base del producto.')
-                    ->required()
-                    ->numeric(),
-                
-                Forms\Components\Textarea::make('reason')
-                    ->label('Motivo del Ajuste')
-                    ->required()
-                    ->columnSpanFull(),
-            ]);
+            Select::make('product_id')
+                ->label('Producto')
+                ->options(function (Get $get) {
+                    // Muestra solo productos que tienen lotes en la bodega seleccionada
+                    if (!$get('location_id')) {
+                        return [];
+                    }
+                    return Product::whereHas('productLots', fn ($q) => $q->where('location_id', $get('location_id')))
+                        ->pluck('name', 'id');
+                })
+                ->live()
+                ->afterStateUpdated(fn (Set $set) => $set('product_lot_id', null))
+                ->searchable()
+                ->required(),
+
+            Select::make('product_lot_id')
+                ->label('Lote Específico')
+                ->options(function (Get $get) {
+                    // Muestra solo los lotes del producto y la bodega seleccionados
+                    if (!$get('product_id') || !$get('location_id')) {
+                        return [];
+                    }
+                    return ProductLot::where('product_id', $get('product_id'))
+                        ->where('location_id', $get('location_id'))
+                        ->get()
+                        ->mapWithKeys(fn ($lot) => [$lot->id => "Lote: {$lot->lot_number} (Vence: {$lot->expiration_date->format('d/m/Y')}) - Stock: {$lot->quantity}"])
+                        ->toArray();
+                })
+                ->live()
+                ->required()
+                ->searchable(),
+
+            Forms\Components\Select::make('type')
+                ->label('Tipo de Ajuste')
+                ->options(['entrada' => 'Entrada (Sumar)', 'salida' => 'Salida (Restar)'])
+                ->required(),
+
+            Forms\Components\TextInput::make('quantity')
+                ->label('Cantidad a Ajustar')
+                ->helperText('La cantidad que se sumará o restará del lote.')
+                ->required()
+                ->numeric(),
+            
+            Forms\Components\Textarea::make('reason')
+                ->label('Motivo del Ajuste')
+                ->required()
+                ->columnSpanFull(),
+        ]);
     }
 
     public static function table(Table $table): Table

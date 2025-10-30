@@ -21,8 +21,9 @@ class CategoryResource extends Resource
     protected static ?string $navigationGroup = 'Configuracion'; 
     protected static ?int $navigationSort = 52;
     // Cambiamos el nombre para que sea más legible
-    protected static ?string $modelLabel = 'Categoría';
-    protected static ?string $pluralModelLabel = 'Categorías';
+    protected static ?string $modelLabel = 'Grupo Farmacológico';
+    protected static ?string $pluralModelLabel = 'Grupos Farmacológicos';
+    protected static ?string $navigationLabel = 'Grupos Farmacológicos';
 
 
     public static function form(Form $form): Form

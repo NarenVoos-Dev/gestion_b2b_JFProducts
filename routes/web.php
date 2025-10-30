@@ -6,6 +6,7 @@ use App\Http\Controllers\PosApiController;
 
 use App\Http\Controllers\ReceiptController;
 use App\Http\Middleware\CheckClientAccess; 
+use App\Http\Controllers\TemplateController; 
 
 /*
 |--------------------------------------------------------------------------
@@ -29,12 +30,17 @@ Route::get('/registro-exitoso', function () {
     return view('registered');
 })->name('registered')->middleware('guest');
 
+/*
+|--------------------------------------------------------------------------
+| Rutas del Portal de Clientes (B2B)
+|--------------------------------------------------------------------------
+*/
 
 Route::middleware([
     'auth', 
     config('jetstream.auth_session'),
     'verified',
-    CheckClientAccess::class, // Tu middleware que verifica el permiso B2B
+    CheckClientAccess::class, //  middleware que verifica el permiso B2B
 ])->group(function () {
     
     // Dashboard principal del cliente
@@ -71,7 +77,21 @@ Route::middleware([
         //Pedidos ============================================================================================
         Route::post('/pedidos', [PosApiController::class, 'storePedidoB2B'])->name('orders.store');
     });
-       
+ 
+});
 
+/*
+|--------------------------------------------------------------------------
+| Rutas Administrativas (Para usuarios logueados como Admin)
+|--------------------------------------------------------------------------
+*/
+Route::middleware([
+    'auth', 
+    config('jetstream.auth_session'),
+    'verified',
+])->group(function () {
+    
+    Route::get('/admin/templates/download-lot-template', [TemplateController::class, 'downloadLotTemplate'])
+        ->name('admin.templates.download-lot');
 
 });

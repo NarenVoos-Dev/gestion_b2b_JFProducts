@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo; 
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class StockAdjustment extends Model
 {
@@ -14,29 +14,25 @@ class StockAdjustment extends Model
         'business_id',
         'product_id',
         'location_id',
+        'product_lot_id', // <<< AÑADIDO
         'type',
         'quantity',
         'reason',
     ];
-    
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
+
     public function location(): BelongsTo
     {
         return $this->belongsTo(Location::class);
     }
 
-    /**
-     * Un ajuste pertenece a un producto.
-     */
-    public function product()
+    // <<< RELACIÓN AÑADIDA >>>
+    public function productLot(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\Product::class);
-    }
-
-    /**
-     * Un ajuste pertenece a un negocio.
-     */
-    public function business()
-    {
-        return $this->belongsTo(\App\Models\Business::class);
+        return $this->belongsTo(ProductLot::class);
     }
 }
