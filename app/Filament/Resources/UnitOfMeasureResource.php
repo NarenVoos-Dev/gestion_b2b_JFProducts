@@ -11,6 +11,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
+
 class UnitOfMeasureResource extends Resource
 {
     protected static ?string $model = UnitOfMeasure::class;
@@ -19,8 +20,8 @@ class UnitOfMeasureResource extends Resource
 
     protected static ?string $navigationGroup = 'Configuracion';
     protected static ?int $navigationSort = 54;
-    protected static ?string $modelLabel = 'Unidad de Medida';
-    protected static ?string $pluralModelLabel = 'Unidades de Medida';
+    protected static ?string $modelLabel = 'Un.de Medida / PresentacionComercial';
+    protected static ?string $pluralModelLabel = 'Un.de Medida /P. Comercial';
 
     public static function form(Form $form): Form
     {

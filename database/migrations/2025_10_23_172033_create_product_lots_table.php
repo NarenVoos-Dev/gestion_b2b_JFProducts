@@ -21,8 +21,6 @@ return new class extends Migration
             $table->decimal('quantity', 10, 2)->comment('Cantidad actual de este lote');
             
             $table->decimal('cost', 10, 2)->nullable()->comment('Costo de adquisición de este lote');
-            $table->decimal('stock_minimo', 10, 2)->default(0)->comment('Stock mínimo para este lote/producto');
-
             $table->timestamps();
 
             $table->unique(['product_id', 'location_id', 'lot_number']);

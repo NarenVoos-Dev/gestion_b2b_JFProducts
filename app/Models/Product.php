@@ -24,14 +24,15 @@ class Product extends Model
         'sku',
         'unit_of_measure_id',
         'price',
-        // 'cost' se ha movido a la tabla product_lots
-        'molecule',
+        'price_regulated_reg',
+        'stock_minimo',
+        'molecule_id',
         'concentration',
-        'commercial_presentation',
-        'commercial_name',
-        'laboratory',
+        'comercial_name_id',
+        'laboratory_id',
         'cold_chain',
         'controlled',
+        'regulated',
         'barcode',
         'cum',
         'invima_registration',
@@ -46,8 +47,27 @@ class Product extends Model
         'price' => 'decimal:2',
         'cold_chain' => 'boolean',
         'controlled' => 'boolean',
+        'regulated' => 'boolean',
         'is_active' => 'boolean',
+        'stock_minimo' => 'decimal:2',
     ];
+
+    //Nombre comercial
+    public function commercialName(): BelongsTo
+    {
+        return $this->belongsTo(CommercialName::class);
+    }
+
+    //Laboratory
+    public function laboratory(): BelongsTo
+    {
+        return $this->belongsTo(Laboratory::class);
+    }
+    //Moleculas
+    public function molecule(): BelongsTo
+    {
+        return $this->belongsTo(Molecule::class);
+    }
 
     /**
      * Un producto ahora tiene muchos lotes.

@@ -39,7 +39,6 @@ class ProductLotResource extends Resource
                 DatePicker::make('expiration_date')->label('Fecha de Vencimiento')->required(),
                 TextInput::make('quantity')->label('Cantidad Actual')->numeric()->required(),
                 TextInput::make('cost')->label('Costo de Adquisición')->numeric()->prefix('$'),
-                TextInput::make('stock_minimo')->label('Stock Mínimo')->numeric()->default(0),
             ]);
     }
 

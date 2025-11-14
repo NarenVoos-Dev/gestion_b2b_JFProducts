@@ -25,7 +25,7 @@ class ProductResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-archive-box';
     protected static ?string $modelLabel = 'Producto';
     protected static ?string $pluralModelLabel = 'Productos';
-    protected static ?string $navigationGroup = 'Catálogos'; // Movido a Catálogos
+    protected static ?string $navigationGroup = 'Catalogos'; // Movido a Catálogos
     protected static ?int $navigationSort = 31;
 
     public static function form(Form $form): Form
@@ -68,30 +68,72 @@ class ProductResource extends Resource
                 
                 Section::make('Detalles Farmacéuticos')
                     ->schema([
-                        TextInput::make('molecule')->label('Molécula'),
+                        Select::make('molecule_id')
+                            ->label('Molécula')
+                            ->relationship('molecule', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->createOptionForm([ // Permite crear una molécula al vuelo
+                                Forms\Components\TextInput::make('name')
+                                    ->label('Nombre de la Molécula')
+                                    ->required()
+                                    ->unique(),
+                            ]),
+                        
+                        
                         TextInput::make('concentration')->label('Concentración'),
                         Select::make('pharmaceutical_form_id')
                             ->relationship('pharmaceuticalForm', 'name')
                             ->label('Forma Farmacéutica')
                             ->searchable()->preload(),
-                        TextInput::make('commercial_presentation')->label('Presentación Comercial'),
-                        TextInput::make('commercial_name')->label('Nombre Comercial'),
-                        TextInput::make('laboratory')->label('Laboratorio'),
+                        //TextInput::make('commercial_presentation')->label('Presentación Comercial'),
+                        Select::make('unit_of_measure_id')
+                            ->relationship('unitOfMeasure', 'name')
+                            ->required()->searchable()->preload()->label('Unidad de Medida Base'),
+                        
+                        Select::make('comercial_name_id')
+                            ->label('Nombre Comercial')
+                            ->relationship('comercialName', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->createOptionForm([ // Permite crear un nombre comercial al vuelo
+                                Forms\Components\TextInput::make('name')
+                                    ->label('Nombre Comercial')
+                                    ->required()
+                                    ->unique(),
+                            ]),
+
+                        Select::make('laboratory_id')
+                            ->label('Laboratorio')
+                            ->relationship('laboratory', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->createOptionForm([ // Permite crear un laboratorio al vuelo
+                                Forms\Components\TextInput::make('name')
+                                    ->label('Nombre del Laboratorio')
+                                    ->required()
+                                    ->unique(),
+                            ]),
                     ])->columns(3),
                 
                 Section::make('Regulación y Precios')
                     ->schema([
                         TextInput::make('price')->label('Precio de Venta')->required()->numeric()->prefix('$'),
-                        Select::make('unit_of_measure_id')
-                            ->relationship('unitOfMeasure', 'name')
-                            ->required()->searchable()->preload()->label('Unidad de Medida Base'),
+                        TextInput::make('price_regulated_reg')->label('Precio regulado regional')->required()->numeric()->prefix('$'),
+
+                        TextInput::make('stock_minimo')
+                            ->label('Stock Mínimo Total')
+                            ->numeric()
+                            ->default(0)
+                            ->helperText('Alerta cuando el stock total (suma de todos los lotes) sea igual o menor a este valor.'),
                         TextInput::make('invima_registration')->label('Registro INVIMA'),
                         TextInput::make('cum')->label('CUM'),
                         TextInput::make('atc_code')->label('Código ATC'),
-                        Grid::make(3)
+                        Grid::make(4)
                             ->schema([
                                 Toggle::make('controlled')->label('Es Controlado'),
                                 Toggle::make('cold_chain')->label('Cadena de Frío'),
+                                Toggle::make('regulated')->label('Regulado'),
                                 Toggle::make('is_active')->label('Producto Activo')->default(true),
                             ]),
                     ])->columns(3),

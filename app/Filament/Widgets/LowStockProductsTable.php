@@ -6,7 +6,6 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
 use App\Models\Product;
-use App\Models\Inventory;
 use App\Filament\Resources\ProductResource;
 
 class LowStockProductsTable extends BaseWidget
@@ -18,28 +17,25 @@ class LowStockProductsTable extends BaseWidget
     {
         return $table
             ->query(
-                Inventory::with(['product', 'location'])
-                    ->whereColumn('stock', '<=', 'stock_minimo')
+                Product::query()
+                    // Sumamos la cantidad de todos los lotes del producto
+                    ->withSum('productLots', 'quantity')
+                    // Solo mostramos productos donde el 'stock_minimo' es mayor a 0
                     ->where('stock_minimo', '>', 0)
-                    ->whereHas('product') // Solo inventarios que tengan producto
-                    ->whereHas('location') // Solo inventarios que tengan ubicación
+                    // Usamos un filtro avanzado para comparar la suma con la columna
+                    ->whereRaw(
+                        '(SELECT SUM(quantity) FROM product_lots WHERE product_lots.product_id = products.id) <= products.stock_minimo'
+                    )
             )
-            ->heading('Productos con Bajo Stock por Bodega')
+            ->heading('Productos con Bajo Stock Total')
             ->columns([
-                Tables\Columns\TextColumn::make('product.name')
+                Tables\Columns\TextColumn::make('name')
                     ->label('Producto')
-                    ->searchable()
-                    ->sortable()
-                    ->wrap(),
-
-                Tables\Columns\TextColumn::make('location.name')
-                    ->label('Bodega / Sucursal')
-                    ->badge()
-                    ->color('info')
                     ->searchable(),
 
-                Tables\Columns\TextColumn::make('stock')
-                    ->label('Stock Actual')
+                // Esta columna ahora es la suma de todos los lotes
+                Tables\Columns\TextColumn::make('product_lots_sum_quantity')
+                    ->label('Stock Total Actual')
                     ->numeric()
                     ->color('danger')
                     ->weight('bold'),
@@ -49,26 +45,14 @@ class LowStockProductsTable extends BaseWidget
                     ->numeric()
                     ->color('warning'),
 
-                // Columna adicional para mostrar qué tan crítico es el stock
-                Tables\Columns\TextColumn::make('criticality')
-                    ->label('Criticidad')
-                    ->getStateUsing(function (Inventory $record): string {
-                        $percentage = ($record->stock / $record->stock_minimo) * 100;
-                        if ($percentage == 0) return 'Sin stock';
-                        if ($percentage <= 25) return 'Crítico';
-                        if ($percentage <= 50) return 'Bajo';
-                        return 'Normal';
-                    })
-                    ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'Sin stock' => 'danger',
-                        'Crítico' => 'danger',
-                        'Bajo' => 'warning',
-                        default => 'success',
-                    }),
+                Tables\Columns\TextColumn::make('stock_minimo')
+                    ->label('Stock Mínimo')
+                    ->numeric()
+                    ->color('warning'),
+
             ])
-            ->defaultSort('stock', 'asc') // Ordenar por stock más bajo primero
+            ->defaultSort('name', 'asc') // Ordenar por stock más bajo primero
             ->paginated([10, 25, 50])
-            ->poll('30s'); // Actualizar cada 30 segundos
+            ->poll('10s'); // Actualizar cada 30 segundos
     }
 }

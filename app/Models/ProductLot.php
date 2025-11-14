@@ -19,14 +19,14 @@ class ProductLot extends Model
         'expiration_date',
         'quantity',
         'cost',
-        'stock_minimo',
+        //'stock_minimo',
     ];
 
     protected $casts = [
         'expiration_date' => 'date',
         'quantity' => 'decimal:2',
         'cost' => 'decimal:2',
-        'stock_minimo' => 'decimal:2',
+        //'stock_minimo' => 'decimal:2',
     ];
 
     public function product(): BelongsTo

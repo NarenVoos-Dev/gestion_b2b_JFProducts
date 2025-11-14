@@ -25,14 +25,18 @@ return new class extends Migration
             $table->string('sku')->nullable()->unique()->comment('Stock Keeping Unit'); // Codigo unico del producto
             $table->string('unit')->default('unidad')->comment('Ej: unidad, metro, litro, caja');
             $table->decimal('price', 10, 2)->comment('Precio de venta al público');
-            
-            $table->string('molecule')->nullable(); // MOLECULA
+            $table->decimal('price_regulated_reg', 10, 2)->nullable()->comment('Precio regulado regional');
+
+            $table->decimal('stock_minimo', 10, 2)->default(0)->comment('Stock mínimo para este lote/producto');
+
+            $table->foreignId('molecule_id')->nullable()->constrained('molecules'); // MOLECULA
             $table->string('concentration')->nullable(); // CONCENTRACION
-            $table->string('commercial_presentation')->nullable(); // PRESENTACION_COMERCIAL
-            $table->string('commercial_name')->nullable(); // NOMBRE_COMERCIAL
-            $table->string('laboratory')->nullable(); // LABORATORIO
+            $table->foreignId('comercial_name_id')->nullable()->constrained('comercial_names'); // NOMBRE_COMERCIAL
+            $table->foreignId('laboratory_id')->nullable()->constrained('laboratories'); // LABORATORIO
             $table->boolean('cold_chain')->default(false); // CADENA_FRIO
             $table->boolean('controlled')->default(false); // CONTROLADO
+            $table->boolean('regulated')->default(false); // regulado
+
             $table->string('barcode')->nullable(); // COD_BARRAS
             $table->string('cum')->nullable(); // CUM
             $table->string('invima_registration')->nullable(); // INVIMA
