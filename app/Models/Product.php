@@ -28,7 +28,7 @@ class Product extends Model
         'stock_minimo',
         'molecule_id',
         'concentration',
-        'comercial_name_id',
+        'commercial_name_id',
         'laboratory_id',
         'cold_chain',
         'controlled',

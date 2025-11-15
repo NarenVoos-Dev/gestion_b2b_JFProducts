@@ -31,7 +31,7 @@ return new class extends Migration
 
             $table->foreignId('molecule_id')->nullable()->constrained('molecules'); // MOLECULA
             $table->string('concentration')->nullable(); // CONCENTRACION
-            $table->foreignId('comercial_name_id')->nullable()->constrained('comercial_names'); // NOMBRE_COMERCIAL
+            $table->foreignId('commercial_name_id')->nullable()->constrained('commercial_names'); // NOMBRE_COMERCIAL
             $table->foreignId('laboratory_id')->nullable()->constrained('laboratories'); // LABORATORIO
             $table->boolean('cold_chain')->default(false); // CADENA_FRIO
             $table->boolean('controlled')->default(false); // CONTROLADO

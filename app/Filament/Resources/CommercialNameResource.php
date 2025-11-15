@@ -9,7 +9,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 
-class ComercialNameResource extends Resource
+class CommercialNameResource extends Resource
 {
     protected static ?string $model = CommercialName::class;
 

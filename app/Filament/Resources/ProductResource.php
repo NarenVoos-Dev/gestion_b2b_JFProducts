@@ -89,11 +89,11 @@ class ProductResource extends Resource
                         //TextInput::make('commercial_presentation')->label('Presentación Comercial'),
                         Select::make('unit_of_measure_id')
                             ->relationship('unitOfMeasure', 'name')
-                            ->required()->searchable()->preload()->label('Unidad de Medida Base'),
+                            ->required()->searchable()->preload()->label('Unidad de Medida Base / Presentacion Comercial'),
                         
-                        Select::make('comercial_name_id')
+                        Select::make('commercial_name_id')
                             ->label('Nombre Comercial')
-                            ->relationship('comercialName', 'name')
+                            ->relationship('commercialName', 'name')
                             ->searchable()
                             ->preload()
                             ->createOptionForm([ // Permite crear un nombre comercial al vuelo
