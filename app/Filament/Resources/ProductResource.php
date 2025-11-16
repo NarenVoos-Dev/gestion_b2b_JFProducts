@@ -118,7 +118,6 @@ class ProductResource extends Resource
                 
                 Section::make('Regulación y Precios')
                     ->schema([
-                        TextInput::make('price')->label('Precio de Venta')->required()->numeric()->prefix('$'),
                         TextInput::make('price_regulated_reg')->label('Precio regulado regional')->required()->numeric()->prefix('$'),
 
                         TextInput::make('stock_minimo')

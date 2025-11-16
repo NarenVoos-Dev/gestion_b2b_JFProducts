@@ -24,7 +24,7 @@ return new class extends Migration
             $table->string('name');
             $table->string('sku')->nullable()->unique()->comment('Stock Keeping Unit'); // Codigo unico del producto
             $table->string('unit')->default('unidad')->comment('Ej: unidad, metro, litro, caja');
-            $table->decimal('price', 10, 2)->comment('Precio de venta al público');
+            
             $table->decimal('price_regulated_reg', 10, 2)->nullable()->comment('Precio regulado regional');
 
             $table->decimal('stock_minimo', 10, 2)->default(0)->comment('Stock mínimo para este lote/producto');
