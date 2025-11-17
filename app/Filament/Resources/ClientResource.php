@@ -117,6 +117,13 @@ class ClientResource extends Resource
                                     ->prefix('$')
                                     ->default(0)
                                     ->required(),
+                                
+                                Forms\Components\Select::make('price_list_id')
+                                    ->label('Lista de Precios Asignada')
+                                    ->relationship('priceList', 'name')
+                                    ->searchable()
+                                    ->preload()
+                                    ->placeholder('Usar precio estándar (sin lista)'),
                             ])->columns(2),
 
                         Forms\Components\Tabs\Tab::make('Acceso B2B')

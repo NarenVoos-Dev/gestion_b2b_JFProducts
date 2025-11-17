@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\ProductLotResource\Pages;
 use App\Models\ProductLot;
+use App\Models\Product;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -13,11 +14,9 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\DatePicker;
-use App\Filament\Imports\LotsImporter; // Debe apuntar a la nueva clase
+use App\Filament\Imports\LotsImporter;
 use Filament\Tables\Actions\ImportAction;
 use Filament\Tables\Actions\Action;
-
-
 
 class ProductLotResource extends Resource
 {
@@ -31,14 +30,60 @@ class ProductLotResource extends Resource
     {
         return $form
             ->schema([
-                Select::make('product_id')->label('Producto')
-                    ->relationship('product', 'name')->required()->searchable()->preload(),
-                Select::make('location_id')->label('Bodega / Sucursal')
-                    ->relationship('location', 'name')->required()->searchable()->preload(),
-                TextInput::make('lot_number')->label('Número de Lote')->required(),
-                DatePicker::make('expiration_date')->label('Fecha de Vencimiento')->required(),
-                TextInput::make('quantity')->label('Cantidad Actual')->numeric()->required(),
-                TextInput::make('cost')->label('Costo de Adquisición')->numeric()->prefix('$'),
+                Select::make('product_id')
+                    ->label('Producto')
+                    ->options(function () {
+                        return Product::query()
+                            ->with(['category', 'commercialName'])
+                            ->where('is_active', true)
+                            ->orderBy('name')
+                            ->get()
+                            ->mapWithKeys(function ($product) {
+                                 return [$product->id => $product->name];
+                            });
+                    })
+                    ->searchable()
+                    ->preload()
+                    ->required()
+                    ->native(false)
+                    ->live()
+                    ->optionsLimit(50),
+
+                Select::make('location_id')
+                    ->label('Bodega / Sucursal')
+                    ->relationship('location', 'name')
+                    ->required()
+                    ->searchable()
+                    ->preload(),
+                    
+                TextInput::make('lot_number')
+                    ->label('Número de Lote')
+                    ->required()
+                    ->unique(
+                        table: ProductLot::class,
+                        ignorable: fn ($record) => $record,
+                        modifyRuleUsing: fn ($rule, $get) => $rule
+                            ->where('product_id', $get('product_id'))
+                            ->where('location_id', $get('location_id'))
+                    )
+                    ->validationMessages([
+                        'unique' => 'Ya existe un lote con este número para el producto y bodega seleccionados.',
+                    ])
+                    ->helperText('Este número debe ser único para cada producto en cada bodega.'),
+                    
+                DatePicker::make('expiration_date')
+                    ->label('Fecha de Vencimiento')
+                    ->required(),
+                    
+                TextInput::make('quantity')
+                    ->label('Cantidad Actual')
+                    ->numeric()
+                    ->required(),
+                    
+                TextInput::make('cost')
+                    ->label('Costo de Adquisición')
+                    ->numeric()
+                    ->prefix('$'),
             ]);
     }
 
@@ -62,13 +107,13 @@ class ProductLotResource extends Resource
                     ->label('Descargar Plantilla')
                     ->icon('heroicon-o-document-arrow-down')
                     ->color('gray')
-                    ->url(route('admin.templates.download-lot')) // Apunta a la ruta que creamos
+                    ->url(route('admin.templates.download-lot'))
                     ->openUrlInNewTab(),
                     
                 ImportAction::make()
                     ->label('Importar Lotes desde Excel')
                     ->importer(LotsImporter::class)
-                    ->color('success') // Cambia el color del botón a verde
+                    ->color('success')
                     ->icon('heroicon-o-document-arrow-up'),
                 
                 Tables\Actions\CreateAction::make(),

@@ -23,7 +23,8 @@ return new class extends Migration
             $table->string('phone1')->nullable()->comment('Teléfono principal');
             $table->string('phone2')->nullable()->comment('Teléfono secundario');
             $table->string('address')->nullable();
-            
+            //Lista de precio
+            $table->foreignId('price_list_id')->nullable()->constrained('price_lists')->nullOnDelete();
             // Logística y Crédito (Mantenemos zone_id de tu migración previa)
             $table->decimal('credit_limit', 15, 2)->default(0);
 

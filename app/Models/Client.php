@@ -20,6 +20,7 @@ class Client extends Model
         'phone2',        // <<-- NUEVO CAMPO
         'address',
         'credit_limit',
+        'price_list_id',
         'is_active',     // <<-- NUEVO CAMPO
     ];
 
@@ -29,6 +30,11 @@ class Client extends Model
     ];
 
     // Relaciones
+
+    public function priceList(): BelongsTo
+    {
+        return $this->belongsTo(PriceList::class);
+    }
     public function business(): BelongsTo
     {
         return $this->belongsTo(Business::class);

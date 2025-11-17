@@ -23,7 +23,7 @@ class Product extends Model
         'name',
         'sku',
         'unit_of_measure_id',
-        'price',
+       
         'price_regulated_reg',
         'stock_minimo',
         'molecule_id',
@@ -38,6 +38,8 @@ class Product extends Model
         'invima_registration',
         'atc_code',
         'is_active',
+        'has_tax',
+        'tax_rate',
     ];
 
     /**
@@ -50,6 +52,8 @@ class Product extends Model
         'regulated' => 'boolean',
         'is_active' => 'boolean',
         'stock_minimo' => 'decimal:2',
+        'has_tax' => 'boolean',
+        'tax_rate' => 'decimal:2',
     ];
 
     //Nombre comercial

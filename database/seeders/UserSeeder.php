@@ -21,7 +21,7 @@ class UserSeeder extends Seeder
             // 1. Crear un negocio de prueba
             $business = Business::firstOrCreate(
                 ['nit' => '900123456-7'],
-                ['name' => 'La Avenida']
+                ['name' => 'JF Products']
             );
 
             // 2. Crear un usuario administrador para ese negocio
