@@ -15,6 +15,7 @@ class ProductLot extends Model
     protected $fillable = [
         'product_id',
         'location_id',
+        'inventory_entry_id',
         'lot_number',
         'expiration_date',
         'quantity',
@@ -28,6 +29,11 @@ class ProductLot extends Model
         'cost' => 'decimal:2',
         //'stock_minimo' => 'decimal:2',
     ];
+
+    public function inventoryEntry(): BelongsTo
+    {
+        return $this->belongsTo(InventoryEntry::class);
+    }
 
     public function product(): BelongsTo
     {

@@ -13,8 +13,10 @@ return new class extends Migration
     {
         Schema::create('product_lots', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('inventory_entry_id')->nullable()->constrained('inventory_entries')->onDelete('set null');
             $table->foreignId('product_id')->constrained()->onDelete('cascade');
-            $table->foreignId('location_id')->constrained()->onDelete('cascade');
+
+            //$table->foreignId('location_id')->constrained()->onDelete('cascade');
 
             $table->string('lot_number')->comment('Número de lote');
             $table->date('expiration_date')->comment('Fecha de vencimiento');
@@ -23,7 +25,7 @@ return new class extends Migration
             $table->decimal('cost', 10, 2)->nullable()->comment('Costo de adquisición de este lote');
             $table->timestamps();
 
-            $table->unique(['product_id', 'location_id', 'lot_number']);
+            $table->unique(['lot_number']);
         });
     }
 

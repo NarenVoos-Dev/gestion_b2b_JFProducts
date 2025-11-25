@@ -116,7 +116,7 @@ class ProductLotResource extends Resource
                     ->color('success')
                     ->icon('heroicon-o-document-arrow-up'),
                 
-                Tables\Actions\CreateAction::make(),
+                
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
