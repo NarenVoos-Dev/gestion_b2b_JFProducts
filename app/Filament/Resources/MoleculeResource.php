@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Clusters\ProductConfiguration;
 use App\Filament\Resources\MoleculeResource\Pages;
 use App\Filament\Resources\MoleculeResource\RelationManagers;
 use App\Models\Molecule;
@@ -18,10 +19,11 @@ class MoleculeResource extends Resource
     protected static ?string $model = Molecule::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-puzzle-piece';
-    protected static ?string $navigationGroup = 'Configuracion';
+    protected static ?string $cluster = ProductConfiguration::class;
     protected static ?string $modelLabel = 'Molécula';
     protected static ?string $pluralModelLabel = 'Moléculas';
-    protected static ?int $navigationSort = 63;
+    protected static ?string $navigationLabel = 'Moléculas';
+    protected static ?int $navigationSort = 6;
 
     public static function form(Form $form): Form
     {

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Clusters\ProductConfiguration;
 use App\Filament\Resources\PharmaceuticalFormResource\Pages;
 use App\Filament\Resources\PharmaceuticalFormResource\RelationManagers;
 use App\Models\PharmaceuticalForm;
@@ -18,10 +19,11 @@ class PharmaceuticalFormResource extends Resource
     protected static ?string $model = PharmaceuticalForm::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-beaker';
-    protected static ?string $navigationGroup = 'Configuracion'; // Agrupado en Configuración
+    protected static ?string $cluster = ProductConfiguration::class;
     protected static ?string $modelLabel = 'Forma Farmacéutica';
     protected static ?string $pluralModelLabel = 'Formas Farmacéuticas';
-    protected static ?int $navigationSort = 60;
+    protected static ?string $navigationLabel = 'Formas Farmacéuticas';
+    protected static ?int $navigationSort = 3;
 
     public static function form(Form $form): Form
     {

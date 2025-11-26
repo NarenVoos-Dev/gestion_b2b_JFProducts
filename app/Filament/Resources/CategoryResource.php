@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Clusters\ProductConfiguration;
 use App\Filament\Resources\CategoryResource\Pages;
 use App\Models\Category;
 use Filament\Forms;
@@ -17,9 +18,12 @@ class CategoryResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-tag';
     
-    // Lo agrupamos junto a Productos
-    protected static ?string $navigationGroup = 'Configuracion'; 
-    protected static ?int $navigationSort = 52;
+    // Asignar al cluster
+    protected static ?string $cluster = ProductConfiguration::class;
+    
+    // Ya no necesitamos navigationGroup porque el cluster lo maneja
+    protected static ?int $navigationSort = 1;
+    
     // Cambiamos el nombre para que sea más legible
     protected static ?string $modelLabel = 'Grupo Farmacológico';
     protected static ?string $pluralModelLabel = 'Grupos Farmacológicos';

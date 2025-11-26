@@ -1,6 +1,7 @@
 <?php
 namespace App\Filament\Resources;
 
+use App\Filament\Clusters\ProductConfiguration;
 use App\Filament\Resources\CommercialNameResource\Pages;
 use App\Models\CommercialName;
 use Filament\Forms;
@@ -14,10 +15,11 @@ class CommercialNameResource extends Resource
     protected static ?string $model = CommercialName::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-identification';
-    protected static ?string $navigationGroup = 'Configuracion';
+    protected static ?string $cluster = ProductConfiguration::class;
     protected static ?string $modelLabel = 'Nombre Comercial';
     protected static ?string $pluralModelLabel = 'Nombres Comerciales';
-    protected static ?int $navigationSort = 65;
+    protected static ?string $navigationLabel = 'Nombres Comerciales';
+    protected static ?int $navigationSort = 8;
 
     public static function form(Form $form): Form
     {

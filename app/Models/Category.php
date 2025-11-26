@@ -10,7 +10,7 @@ class Category extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['business_id', 'name'];
+    protected $fillable = ['name','business_id'];
 
      /**
      * Una categoría pertenece a un negocio.

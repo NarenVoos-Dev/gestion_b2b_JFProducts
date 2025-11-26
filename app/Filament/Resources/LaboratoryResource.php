@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Clusters\ProductConfiguration;
 use App\Filament\Resources\LaboratoryResource\Pages;
 use App\Filament\Resources\LaboratoryResource\RelationManagers;
 use App\Models\Laboratory;
@@ -18,10 +19,11 @@ class LaboratoryResource extends Resource
     protected static ?string $model = Laboratory::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-building-office-2';
-    protected static ?string $navigationGroup = 'Configuracion';
+    protected static ?string $cluster = ProductConfiguration::class;
     protected static ?string $modelLabel = 'Laboratorio';
     protected static ?string $pluralModelLabel = 'Laboratorios';
-    protected static ?int $navigationSort = 64;
+    protected static ?string $navigationLabel = 'Laboratorios';
+    protected static ?int $navigationSort = 7;
 
     public static function form(Form $form): Form
     {

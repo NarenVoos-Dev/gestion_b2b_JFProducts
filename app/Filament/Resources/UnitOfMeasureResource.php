@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Clusters\ProductConfiguration;
 use App\Filament\Resources\UnitOfMeasureResource\Pages;
 use App\Models\UnitOfMeasure;
 use Filament\Forms;
@@ -18,10 +19,11 @@ class UnitOfMeasureResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-cube';
 
-    protected static ?string $navigationGroup = 'Configuracion';
-    protected static ?int $navigationSort = 54;
-    protected static ?string $modelLabel = 'Un.de Medida / PresentacionComercial';
-    protected static ?string $pluralModelLabel = 'Un.de Medida /P. Comercial';
+    protected static ?string $cluster = ProductConfiguration::class;
+    protected static ?int $navigationSort = 2;
+    protected static ?string $modelLabel = 'Unidad de Medida';
+    protected static ?string $pluralModelLabel = 'Unidades de Medida';
+    protected static ?string $navigationLabel = 'Unidades de Medida';
 
     public static function form(Form $form): Form
     {

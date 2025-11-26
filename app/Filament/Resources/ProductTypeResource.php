@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Clusters\ProductConfiguration;
 use App\Filament\Resources\ProductTypeResource\Pages;
 use App\Filament\Resources\ProductTypeResource\RelationManagers;
 use App\Models\ProductType;
@@ -18,10 +19,11 @@ class ProductTypeResource extends Resource
     protected static ?string $model = ProductType::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-tag';
-    protected static ?string $navigationGroup = 'Configuracion';
+    protected static ?string $cluster = ProductConfiguration::class;
     protected static ?string $modelLabel = 'Tipo de Producto';
     protected static ?string $pluralModelLabel = 'Tipos de Producto';
-    protected static ?int $navigationSort = 62;
+    protected static ?string $navigationLabel = 'Tipos de Producto';
+    protected static ?int $navigationSort = 5;
 
     public static function form(Form $form): Form
     {
