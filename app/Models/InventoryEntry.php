@@ -26,4 +26,14 @@ class InventoryEntry extends Model
     {
         return $this->belongsTo(Supplier::class);
     }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function business(): BelongsTo
+    {
+        return $this->belongsTo(Business::class);
+    }
 }

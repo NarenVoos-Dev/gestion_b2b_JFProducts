@@ -113,6 +113,10 @@ class InventoryEntryResource extends Resource
                             ->label('')
                             ->relationship()
                             ->schema([
+                                // Campo oculto para pasar location_id del padre al lote
+                                Forms\Components\Hidden::make('location_id')
+                                    ->default(fn (Get $get) => $get('../../location_id')),
+                                
                                 Grid::make(12)->schema([
                                     Select::make('product_id')
                                         ->label('Producto')
@@ -198,23 +202,12 @@ class InventoryEntryResource extends Resource
                                     : 'Producto sin configurar'
                             )
                             ->collapsed()
-                            ->collapsible(),
-                        
-                        /*Placeholder::make('total')
-                            ->label('💰 Total General del Ingreso')
-                            ->content(function (Get $get) {
-                                $productLots = $get('productLots') ?? [];
-                                $total = 0;
-                                foreach ($productLots as $lot) {
-                                    $quantity = floatval($lot['quantity'] ?? 0);
-                                    $cost = floatval($lot['cost'] ?? 0);
-                                    $total += $quantity * $cost;
-                                }
-                                return '$' . number_format($total, 2, ',', '.');
-                            })
-                            ->extraAttributes([
-                                'class' => 'text-xl font-bold text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-950 p-4 rounded-lg border-2 border-primary-200 dark:border-primary-800',
-                            ]),*/
+                            ->collapsible()
+                            ->mutateRelationshipDataBeforeCreateUsing(function (array $data, Get $get): array {
+                                // Inyectar location_id del formulario padre
+                                $data['location_id'] = $get('location_id');
+                                return $data;
+                            }),
                     ])
                     ->collapsible()
                     ->persistCollapsed(),
@@ -269,14 +262,6 @@ class InventoryEntryResource extends Resource
                         default => 'gray',
                     })
                     ->toggleable(),
-                
-                TextColumn::make('productLots_count')
-                    ->label('Total Items')
-                    ->counts('productLots')
-                    ->badge()
-                    ->color('success')
-                    ->icon('heroicon-o-cube')
-                    ->suffix(' productos'),
                 
                 TextColumn::make('user.name')
                     ->label('Registrado por')
@@ -382,6 +367,13 @@ class InventoryEntryResource extends Resource
     
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->where('business_id', auth()->user()->business_id);
+        return parent::getEloquentQuery()
+            ->where('business_id', auth()->user()->business_id)
+            ->with([
+                'location',
+                'user',
+                'productLots.product',
+            ])
+            ->withCount('productLots');
     }
 }

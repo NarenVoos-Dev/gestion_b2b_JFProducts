@@ -425,6 +425,18 @@ class ProductResource extends Resource
     
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->where('business_id', auth()->user()->business_id);
+        return parent::getEloquentQuery()
+            ->where('business_id', auth()->user()->business_id)
+            ->with([
+                'category',
+                'commercialName',
+                'productType',
+                'laboratory',
+                'molecule',
+                'unitOfMeasure',
+                'pharmaceuticalForm',
+                'productChannel',
+                'productLots', // Para calcular total_stock
+            ]);
     }
 }

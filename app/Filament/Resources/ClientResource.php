@@ -258,6 +258,12 @@ class ClientResource extends Resource
      */
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->where('business_id', auth()->user()->business_id);
+        return parent::getEloquentQuery()
+            ->where('business_id', auth()->user()->business_id)
+            ->with([
+                'priceList',
+                'user',
+                'zone',
+            ]);
     }
 }

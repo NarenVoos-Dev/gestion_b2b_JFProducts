@@ -22,7 +22,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Registrar observer para invalidar caché cuando cambian los lotes
+        \App\Models\ProductLot::observe(\App\Observers\ProductLotObserver::class);
     }
 
     protected $policies = [

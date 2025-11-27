@@ -240,7 +240,14 @@ class SaleResource extends Resource
     
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->where('business_id', auth()->user()->business_id);
+        return parent::getEloquentQuery()
+            ->where('business_id', auth()->user()->business_id)
+            ->with([
+                'client',
+                'location',
+                'items.product',
+                'items.unitOfMeasure',
+            ]);
     }
     
     public static function updateTotals(Get $get, Set $set): void

@@ -53,6 +53,46 @@
             overlay.classList.add('opacity-0');
             overlay.classList.add('invisible');
         }
+
+        // Función para mostrar alertas con SweetAlert2
+        function showAlert(title, message, type = 'info') {
+            Swal.fire({
+                title: title,
+                text: message,
+                icon: type, // 'success', 'error', 'warning', 'info', 'question'
+                confirmButtonColor: '#0f4db3',
+                confirmButtonText: 'Entendido'
+            });
+        }
+
+        // Función para mostrar notificaciones toast
+        function showNotification(message, type = 'success') {
+            const Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true,
+                didOpen: (toast) => {
+                    toast.addEventListener('mouseenter', Swal.stopTimer)
+                    toast.addEventListener('mouseleave', Swal.resumeTimer)
+                }
+            });
+
+            Toast.fire({
+                icon: type,
+                title: message
+            });
+        }
+
+        // Función para actualizar el badge del carrito
+        function updateCartBadge(count) {
+            const badge = document.getElementById('cartBadge');
+            if (badge) {
+                badge.textContent = count;
+                badge.style.display = count > 0 ? 'flex' : 'none';
+            }
+        }
     </script>
         
     

@@ -5,6 +5,7 @@ use Illuminate\Http\Request;
 use App\Models\{Product, Sale, StockMovement, UnitOfMeasure, Client, Category,Inventory, Location};
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Log;
 
@@ -43,33 +44,39 @@ class PosApiController extends Controller
         
         $locationId = $b2bLocation->id;
         
-        // 2. La consulta ahora une con el inventario de la bodega correcta
-        $query = Product::query()
-            ->where('products.is_active', true)
-            ->join('inventory', function ($join) use ($locationId) {
-                $join->on('products.id', '=', 'inventory.product_id')
-                    ->where('inventory.location_id', '=', $locationId);
-            })
-            ->select('products.*', 'inventory.stock as stock_in_location', 'inventory.stock_minimo');
+        // 2. Construir query de productos activos
+        $query = Product::query()->where('is_active', true);
         
         Log::info('Query base construida', ['location_id' => $locationId]);
 
         // Filtro por categoría
         if ($request->filled('category_id')) {
             $categoryId = $request->input('category_id');
-            $query->where('products.category_id', $categoryId);
+            $query->where('category_id', $categoryId);
             Log::info('Filtro por categoría aplicado', ['category_id' => $categoryId]);
         }
         
         // Filtro por búsqueda
         if ($request->filled('search')) {
             $searchTerm = $request->input('search');
-            $query->where('products.name', 'like', '%' . $searchTerm . '%');
+            $query->where('name', 'like', '%' . $searchTerm . '%');
             Log::info('Filtro de búsqueda aplicado', ['search_term' => $searchTerm]);
         }
         
-        // Ejecutar consulta
-        $products = $query->with(['unitOfMeasure', 'category'])->get();
+        // Ejecutar consulta con relaciones
+        $products = $query->with(['unitOfMeasure', 'category', 'laboratory'])->get();
+        
+        // 3. Calcular stock para cada producto en la bodega B2B
+        $products = $products->map(function ($product) use ($locationId) {
+            $stockInLocation = \App\Models\ProductLot::where('product_id', $product->id)
+                ->where('location_id', $locationId)
+                ->sum('quantity');
+            
+            $product->stock_in_location = $stockInLocation;
+            $product->price = $product->price_regulated_reg; // Usar precio regulado
+            
+            return $product;
+        });
         
         Log::info('Productos obtenidos', [
             'total_productos' => $products->count()

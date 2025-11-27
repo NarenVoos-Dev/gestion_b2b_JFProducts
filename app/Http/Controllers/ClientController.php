@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use App\Models\Category;
 use App\Models\Client;
 use App\Models\UnitOfMeasure;
@@ -17,53 +18,7 @@ use Carbon\Carbon;
 
 class ClientController extends Controller
 {
-    /* public function dashboard(Request $request)
-    public function dashboard(Request $request)
-    {
-        $user = Auth::user();
-        $client = Client::find($user->client_id);
-
-        if (!$client) {
-            abort(403, 'No tienes un cliente asociado');
-        }
-
-        // --- 1. Métricas (KPIs) ---
-        $stats = [
-            'total_pendientes' => $client->sales()->where('status', 'Pendiente')->count(),
-            'total_facturados' => $client->sales()->where('status', 'Facturado')->count(),
-            'total_entregados' => $client->sales()->where('status', 'Entregado')->count(),
-            'gasto_total' => $client->sales()->sum('total'),
-        ];
-        
-        // --- 2. Gráfico de últimos 6 meses ---
-        $chartData = [
-            'labels' => [],
-            'data' => [],
-        ];
-
-        for ($i = 5; $i >= 0; $i--) {
-            $month = Carbon::now()->subMonths($i);
-            $chartData['labels'][] = $month->format('M Y');
-            $chartData['data'][] = $client->sales()
-                ->whereYear('date', $month->year)
-                ->whereMonth('date', $month->month)
-                ->sum('total');
-        }
-
-        // --- 3. Últimos pedidos ---
-        $latestOrders = $client->sales()
-            ->latest('created_at')
-            ->take(5)
-            ->get();
-
-        return view('client.dashboard', [
-            'user' => $user,
-            'client' => $client,
-            'stats' => $stats,
-            'chartData' => $chartData,
-            'latestOrders' => $latestOrders,
-        ]);
-    }*/
+    
     public function dashboard(Request $request)
     {
         $user = Auth::user();
@@ -135,41 +90,68 @@ class ClientController extends Controller
             Log::warning('No se encontró bodega B2B configurada');
         }
         
-        $products = [];
+        $products = collect([]);
+        
         if ($b2bLocation) {
-            // 2. Si hay una bodega, cargamos los productos y su stock de esa bodega
-            $products = Product::query()
-                ->join('inventory', function ($join) use ($b2bLocation) {
-                    $join->on('products.id', '=', 'inventory.product_id')
-                        ->where('inventory.location_id', '=', $b2bLocation->id);
-                })
-                ->select('products.*', 'inventory.stock as stock_in_location','inventory.stock_minimo as stock_minimo')
-                ->with('unitOfMeasure')
-                ->get();
+            // 2. Usar caché para productos - se actualiza cada 5 minutos o cuando cambia el stock
+            $cacheKey = 'b2b_products_location_' . $b2bLocation->id;
+            
+            $products = Cache::remember($cacheKey, 300, function () use ($b2bLocation) {
+                Log::info('Cargando productos desde BD (cache miss)', ['location_id' => $b2bLocation->id]);
                 
-            Log::info('Productos cargados desde bodega B2B', [
+                return Product::query()
+                    ->where('is_active', true)
+                    ->with(['unitOfMeasure', 'category', 'laboratory', 'molecule', 'pharmaceuticalForm'])
+                    ->get()
+                    ->map(function ($product) use ($b2bLocation) {
+                        // Calcular stock en la bodega B2B sumando los lotes
+                        $stockInLocation = \App\Models\ProductLot::where('product_id', $product->id)
+                            ->where('location_id', $b2bLocation->id)
+                            ->sum('quantity');
+                        
+                        // Cargar lotes de esta bodega
+                        $product->lots = \App\Models\ProductLot::where('product_id', $product->id)
+                            ->where('location_id', $b2bLocation->id)
+                            ->where('quantity', '>', 0)
+                            ->orderBy('expiration_date', 'asc')
+                            ->get(['lot_number', 'quantity', 'expiration_date', 'cost']);
+                        
+                        // Agregar el stock como atributo del producto
+                        $product->stock_in_location = $stockInLocation;
+                        $product->price = $product->price_regulated_reg; // Usar el precio regulado
+                        
+                        return $product;
+                    });
+            });
+                
+            Log::info('Productos cargados (desde cache o BD)', [
                 'total_productos' => $products->count(),
-                'location_id' => $b2bLocation->id
+                'location_id' => $b2bLocation->id,
+                'cache_key' => $cacheKey
             ]);
             
             // Log detallado de productos (opcional, comentar en producción)
             if ($products->isEmpty()) {
-                Log::warning('No se encontraron productos en la bodega B2B');
+                Log::warning('No se encontraron productos activos');
             } else {
                 Log::debug('Primeros 5 productos', [
                     'productos' => $products->take(5)->map(function($p) {
                         return [
                             'id' => $p->id,
                             'name' => $p->name ?? 'N/A',
-                            'stock' => $p->stock_in_location ?? 0
+                            'stock' => $p->stock_in_location ?? 0,
+                            'price' => $p->price ?? 0
                         ];
                     })
                 ]);
             }
         }
         
-        // Categorías sin filtro de business_id
-        $categories = Category::get(['id', 'name']);
+        // Categorías también en caché
+        $categories = Cache::remember('b2b_categories', 600, function() {
+            return Category::get(['id', 'name']);
+        });
+        
         Log::info('Categorías cargadas', ['total_categorias' => $categories->count()]);
         
         $cartCount = count(session()->get('b2b_cart', []));
