@@ -603,114 +603,306 @@
     }
 
     
-function quickAddToCart(productId, quantity = 1) {
-        console.log('dentro de quickAdd', productId)
-        const product = allProducts.find(p => p.id === productId);
-        if (!product) return;
-        const data = {
-            product_id: productId,
-            quantity: 1, 
-            unit_of_measure_id: product.unit_of_measure_id
-        };
-
-        // Llamamos a la nueva ruta de la API
-        ajaxRequest('{{ route("api.b2b.cart.add") }}', 'POST', data)  
-            .done(function(response) {
-                if (response.success) {
-                    showNotification(response.message, 'success');
-                    // Actualizamos el contador del carrito en la cabecera
-                    document.getElementById('cartBadge').textContent = response.cart_count;
-                }
-            });
+    function quickAddToCart(productId, quantity = 1) {
+        // Simplemente llamamos a la función addToCart que usa localStorage
+        addToCart(productId, quantity);
     }
 
-    function renderCart(cartData) {
-        const cartItemsContainer = document.getElementById('cartItems');
-        const cartTotalContainer = document.getElementById('cartTotal');
-        const cartTitle = document.getElementById('cartTitle');
 
+
+    // ========================================
+    // FUNCIONES DEL CARRITO DE COMPRAS (API)
+    // ========================================
+    
+    // Helper para hacer peticiones a la API
+    function apiRequest(url, method = 'GET', data = null) {
+        const options = {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'Accept': 'application/json',
+            },
+        };
+
+        if (data && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+            options.body = JSON.stringify(data);
+        }
+
+        return fetch(url, options)
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => Promise.reject(err));
+                }
+                return response.json();
+            });
+    }
+    
+    // Cargar carrito desde la API
+    function loadCart() {
+        apiRequest('{{ url("/api/b2b/cart") }}')
+            .then(response => {
+                if (response.success) {
+                    renderCart(response);
+                    updateCartBadge(response.summary.item_count);
+                }
+            })
+            .catch(error => {
+                console.error('Error al cargar carrito:', error);
+            });
+    }
+    
+    // Abrir/cerrar carrito con loading state
+    function toggleCart() {
+        const cartPanel = document.getElementById('cartPanel');
+        const overlay = document.getElementById('cartOverlay');
+        
+        // Si estamos abriendo el carrito
+        if (cartPanel.classList.contains('translate-x-full')) {
+            // Abrir panel inmediatamente
+            cartPanel.classList.remove('translate-x-full');
+            overlay.classList.remove('opacity-0', 'invisible');
+            
+            // Mostrar skeleton loader mientras carga
+            showCartLoading();
+            
+            // Cargar datos en segundo plano
+            loadCart();
+        } else {
+            // Cerrar carrito
+            cartPanel.classList.add('translate-x-full');
+            overlay.classList.add('opacity-0', 'invisible');
+        }
+    }
+    
+    function showCartLoading() {
+        const cartItems = document.getElementById('cartItems');
+        cartItems.innerHTML = `
+            <div class="space-y-4 animate-pulse">
+                <div class="bg-gray-200 rounded-xl h-24"></div>
+                <div class="bg-gray-200 rounded-xl h-24"></div>
+                <div class="bg-gray-200 rounded-xl h-24"></div>
+            </div>
+        `;
+    }
+    
+    function closeCart() {
+        const cartPanel = document.getElementById('cartPanel');
+        const overlay = document.getElementById('cartOverlay');
+        cartPanel.classList.add('translate-x-full');
+        overlay.classList.add('opacity-0');
+        overlay.classList.add('invisible');
+    }
+    
+    // Agregar producto al carrito con optimistic update
+    function addToCart(productId, quantity = 1) {
+        // Obtener badge actual para poder hacer rollback si falla
+        const badge = document.getElementById('cartBadge');
+        const currentCount = parseInt(badge.textContent) || 0;
+        const newCount = currentCount + 1;
+        
+        // Actualización optimista: actualizar UI inmediatamente
+        updateCartBadge(newCount);
+        showNotification('Producto agregado al carrito', 'success');
+        
+        // Luego hacer la petición al servidor
+        apiRequest('{{ url("/api/b2b/cart/add") }}', 'POST', {
+            product_id: productId,
+            quantity: quantity
+        })
+        .then(response => {
+            if (response.success) {
+                // Actualizar con el valor real del servidor (por si acaso)
+                updateCartBadge(response.cart_count);
+            }
+        })
+        .catch(error => {
+            // Rollback: volver al valor anterior si falla
+            updateCartBadge(currentCount);
+            showNotification(error.message || 'Error al agregar producto', 'error');
+        });
+    }
+    
+    // Renderizar carrito
+    function renderCart(cartData) {
+        const cartItems = document.getElementById('cartItems');
+        const cartFooter = document.getElementById('cartFooter');
+        
         if (!cartData || cartData.cart.length === 0) {
-            cartItemsContainer.innerHTML = `<div class="text-center py-20 ...">Tu carrito está vacío</div>`;
-            cartTotalContainer.innerHTML = '';
-            cartTitle.textContent = 'Mi Carrito';
-            updateCartBadge(0);
+            cartFooter.style.display = 'none';
+            cartItems.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-full text-center">
+                    <svg class="w-24 h-24 text-gray-300 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <circle cx="9" cy="21" r="1"></circle>
+                        <circle cx="20" cy="21" r="1"></circle>
+                        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                    </svg>
+                    <p class="text-gray-500 text-lg font-semibold">Tu carrito está vacío</p>
+                    <p class="text-gray-400 text-sm mt-2">Agrega productos para comenzar tu pedido</p>
+                </div>
+            `;
             return;
         }
         
-        // Renderizar items
-        cartItemsContainer.innerHTML = cartData.cart.map(item => {
-            const cartKey = `${item.product_id}_${item.unit_of_measure_id}`;
-            return `
-                <div class="flex gap-4 py-5 border-b border-indigo-500/10">
-                    <div class="w-20 h-20 ...">${item.image ?? '📦'}</div>
-                    <div class="flex-1">
-                        <p class="font-bold ...">${item.name}</p>
-                        <p class="text-indigo-500 ...">$${parseFloat(item.price).toLocaleString('es-CO')} c/u</p>
-                        <div class="flex items-center gap-3">
-                            <button onclick="updateCartQuantity('${cartKey}', -1)" class="...">-</button>
-                            <span class="px-4 font-bold">${item.quantity}</span>
-                            <button onclick="updateCartQuantity('${cartKey}', 1)" class="...">+</button>
-                            <button onclick="removeFromCart('${cartKey}')" class="...">🗑️</button>
+        cartFooter.style.display = 'block';
+        
+        let html = '<div class="space-y-4">';
+        cartData.cart.forEach(item => {
+            html += `
+                <div data-cart-item-id="${item.id}" class="bg-white rounded-xl p-4 shadow-sm border-2 border-gray-100 hover:border-[#0f4db3]/30 transition-all">
+                    <div class="flex gap-4">
+                        <div class="w-16 h-16 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg flex items-center justify-center text-3xl flex-shrink-0">
+                            ${item.image}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h4 class="font-bold text-gray-900 text-sm truncate">${item.name}</h4>
+                            <p class="text-xs text-gray-500">${item.laboratory}</p>
+                            <p class="text-lg font-black text-[#0f4db3] mt-1">$${parseFloat(item.price).toLocaleString('es-CO')}</p>
+                        </div>
+                        <button onclick="removeFromCart(${item.id})" class="text-red-500 hover:text-red-700 hover:bg-red-50 w-8 h-8 rounded-lg flex items-center justify-center transition-all flex-shrink-0">
+                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                        <div class="flex items-center bg-gray-100 rounded-lg overflow-hidden">
+                            <button onclick="updateQuantity(${item.id}, ${item.quantity - 1})" class="px-3 py-1 text-lg font-bold text-[#0f4db3] hover:bg-[#0f4db3]/10 transition-colors">−</button>
+                            <span class="px-4 py-1 font-bold text-gray-900 item-quantity">${item.quantity}</span>
+                            <button onclick="updateQuantity(${item.id}, ${item.quantity + 1})" class="px-3 py-1 text-lg font-bold text-[#0f4db3] hover:bg-[#0f4db3]/10 transition-colors">+</button>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-gray-500">Subtotal</div>
+                            <div class="font-bold text-gray-900">$${parseFloat(item.subtotal).toLocaleString('es-CO')}</div>
                         </div>
                     </div>
                 </div>
             `;
-        }).join('');
-
-        // Renderizar totales
-        const summary = cartData.summary;
-        cartTotalContainer.innerHTML = `
-            <div class="p-4 bg-white rounded-lg ...">
-                <div class="flex justify-between ..."><span>Subtotal:</span><span>$${summary.subtotal.toLocaleString('es-CO')}</span></div>
-                <div class="flex justify-between ..."><span>IVA:</span><span>$${summary.tax.toLocaleString('es-CO')}</span></div>
-            </div>
-            <div class="flex justify-between text-2xl ...">
-                <span>Total Final:</span>
-                <span class="text-[#0f4db3]">$${summary.total.toLocaleString('es-CO')}</span>
-            </div>
-            <button class="w-full py-4 ...">Procesar Pedido</button>
-        `;
-
-        // Actualizar título y contador
-        cartTitle.textContent = `Mi Carrito (${summary.item_count})`;
-        updateCartBadge(summary.item_count);
-    }
-
-    // <<< AÑADE ESTA NUEVA FUNCIÓN >>>
-    function loadCart() {
-        ajaxRequest('{{ route("api.b2b.cart.get") }}', 'GET')
-            .done(function(response) {
-                renderCart(response);
-            })
-            .fail(function() {
-                showAlert('Error', 'No se pudo cargar el carrito.', 'error');
-            });
-    }
-
-    // <<< MODIFICA TU FUNCIÓN PARA ABRIR EL CARRITO >>>
-    function toggleCart() {
-        const cartPanel = document.getElementById('cartPanel');
-        const overlay = document.getElementById('sidebarOverlay');
+        });
+        html += '</div>';
         
-        // Si estamos abriendo el carrito, cargamos los datos
-        if (cartPanel.classList.contains('translate-x-full')) {
-            loadCart();
+        cartItems.innerHTML = html;
+        updateCartTotals(cartData.summary);
+    }
+    
+    // Actualizar cantidad con optimistic update
+    function updateQuantity(cartItemId, newQuantity) {
+        if (newQuantity < 1) {
+            removeFromCart(cartItemId);
+            return;
         }
-
-        cartPanel.classList.toggle('translate-x-full');
-        overlay.classList.toggle('opacity-0');
-        overlay.classList.toggle('invisible');
+        
+        // Actualizar UI inmediatamente (optimista)
+        const itemElement = document.querySelector(`[data-cart-item-id="${cartItemId}"]`);
+        if (itemElement) {
+            const quantitySpan = itemElement.querySelector('.item-quantity');
+            const oldQuantity = quantitySpan ? quantitySpan.textContent : newQuantity;
+            if (quantitySpan) quantitySpan.textContent = newQuantity;
+        }
+        
+        apiRequest('{{ url("/api/b2b/cart/update") }}', 'POST', {
+            cart_item_id: cartItemId,
+            quantity: newQuantity
+        })
+        .then(response => {
+            if (response.success) {
+                loadCart(); // Recargar para actualizar totales
+            }
+        })
+        .catch(error => {
+            loadCart(); // Recargar en caso de error para restaurar estado correcto
+            showNotification(error.message || 'Error al actualizar cantidad', 'error');
+        });
+    }
+    
+    // Eliminar del carrito con optimistic update
+    function removeFromCart(cartItemId) {
+        // Obtener badge actual
+        const badge = document.getElementById('cartBadge');
+        const currentCount = parseInt(badge.textContent) || 0;
+        
+        // Actualizar badge inmediatamente
+        updateCartBadge(Math.max(0, currentCount - 1));
+        
+        // Eliminar visualmente el item del DOM
+        const itemElement = document.querySelector(`[data-cart-item-id="${cartItemId}"]`);
+        if (itemElement) {
+            itemElement.style.opacity = '0.5';
+            itemElement.style.pointerEvents = 'none';
+        }
+        
+        apiRequest(`{{ url("/api/b2b/cart/remove") }}/${cartItemId}`, 'DELETE')
+        .then(response => {
+            if (response.success) {
+                showNotification(response.message, 'info');
+                updateCartBadge(response.cart_count);
+                loadCart(); // Recargar carrito
+            }
+        })
+        .catch(error => {
+            // Rollback en caso de error
+            updateCartBadge(currentCount);
+            if (itemElement) {
+                itemElement.style.opacity = '1';
+                itemElement.style.pointerEvents = 'auto';
+            }
+            showNotification('Error al eliminar producto', 'error');
+        });
+    }
+    
+    // Calcular totales
+    function updateCartTotals(summary) {
+        document.getElementById('cartSubtotal').textContent = `$${parseFloat(summary.subtotal).toLocaleString('es-CO')}`;
+        document.getElementById('cartTax').textContent = `$${parseFloat(summary.tax).toLocaleString('es-CO')}`;
+        document.getElementById('cartTotal').textContent = `$${parseFloat(summary.total).toLocaleString('es-CO')}`;
+    }
+    
+    // Proceder al checkout
+    function proceedToCheckout() {
+        // Por ahora solo muestra mensaje
+        showNotification('Funcionalidad de pedido en desarrollo', 'info');
+    }
+    
+    // ========================================
+    // BÚSQUEDA EN NAVBAR
+    // ========================================
+    
+    function searchProducts(query) {
+        const searchTerm = query.toLowerCase().trim();
+        
+        if (searchTerm === '') {
+            // Mostrar todos los productos
+            renderProducts(allProducts);
+            return;
+        }
+        
+        // Filtrar productos
+        const filtered = allProducts.filter(product => {
+            const name = (product.name || '').toLowerCase();
+            const laboratory = (product.laboratory?.name || '').toLowerCase();
+            const category = (product.category?.name || '').toLowerCase();
+            
+            return name.includes(searchTerm) || 
+                   laboratory.includes(searchTerm) || 
+                   category.includes(searchTerm);
+        });
+        
+        renderProducts(filtered);
+        
+        // Actualizar contador
+        document.getElementById('productCount').textContent = filtered.length;
     }
 
-
-    
-
-
+    // Cargar carrito al iniciar
+    loadCart();
 
     // (Opcional) Cierra el modal al presionar la tecla Escape
     $(document).on('keydown', function(e) {
         if (e.key === 'Escape' && !$('#productModal').hasClass('invisible')) {
             closeModal();
+        }
+        if (e.key === 'Escape') {
+            closeCart();
         }
     });
 </script>

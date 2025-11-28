@@ -15,17 +15,6 @@
         <span class="text-xl font-extrabold bg-gradient-to-r from-[#0f4db3] to-[#028dff] bg-clip-text text-transparent">JF Products B2B</span>
     </div>
     
-    <!-- Barra de Búsqueda -->
-    <div class="flex-1 max-w-lg relative hidden md:block">
-        <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-[#0f4db3] w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8"></circle>
-            <path d="m21 21-4.35-4.35"></path>
-        </svg>
-        <input type="text" onkeyup="searchProducts(this.value)" placeholder="Buscar productos y pedidos..." 
-               class="w-full py-2.5 pl-10 pr-4 border-2 border-transparent rounded-xl text-sm transition-all duration-300 bg-white/80 backdrop-blur-md 
-                      focus:outline-none focus:border-[#0f4db3] focus:bg-white focus:shadow-md focus:shadow-[#0f4db3]/10 focus:-translate-y-0.5">
-    </div>
-    
     <!-- Botones de Utilidad -->
     <div class="flex items-center gap-4">
         
@@ -39,13 +28,53 @@
         
         <!-- Botón de Carrito -->
         <div onclick="toggleCart()" 
-             class="px-4 py-2 rounded-lg transition-all duration-300 bg-gradient-to-br from-[#0f4db3] to-[#028dff] text-white flex items-center gap-1 font-semibold text-sm cursor-pointer hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#0f4db3]/30">
+             class="px-4 py-2 rounded-lg transition-all duration-300 bg-gradient-to-br from-[#0f4db3] to-[#028dff] text-white flex items-center gap-1 font-semibold text-sm cursor-pointer hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#0f4db3]/30 relative">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="9" cy="21" r="1"></circle>
                 <circle cx="20" cy="21" r="1"></circle>
                 <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
             </svg>
-            <span id="cartBadge" class="bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs font-bold ml-1">3</span>
+            <span>Carrito</span>
+            <span id="cartBadge" class="bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold ml-1" style="display: none;">0</span>
         </div>
     </div>
 </header>
+
+<script>
+    // Cargar contador del carrito al cargar la página
+    document.addEventListener('DOMContentLoaded', function() {
+        loadCartBadge();
+    });
+
+    function loadCartBadge() {
+        fetch('{{ url("/api/b2b/cart") }}', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'Accept': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.summary) {
+                updateCartBadge(data.summary.item_count);
+            }
+        })
+        .catch(error => {
+            console.log('Error al cargar badge del carrito:', error);
+        });
+    }
+
+    function updateCartBadge(count) {
+        const badge = document.getElementById('cartBadge');
+        if (badge) {
+            if (count > 0) {
+                badge.textContent = count;
+                badge.style.display = 'flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+    }
+</script>

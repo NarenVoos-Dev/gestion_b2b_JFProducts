@@ -56,6 +56,7 @@ class Product extends Model
         'tax_rate' => 'decimal:2',
     ];
 
+
     //Nombre comercial
     public function commercialName(): BelongsTo
     {

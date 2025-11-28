@@ -110,41 +110,27 @@ class ClientController extends Controller
                             ->sum('quantity');
                         
                         // Cargar lotes de esta bodega
-                        $product->lots = \App\Models\ProductLot::where('product_id', $product->id)
+                        $lots = \App\Models\ProductLot::where('product_id', $product->id)
                             ->where('location_id', $b2bLocation->id)
                             ->where('quantity', '>', 0)
                             ->orderBy('expiration_date', 'asc')
                             ->get(['lot_number', 'quantity', 'expiration_date', 'cost']);
                         
-                        // Agregar el stock como atributo del producto
-                        $product->stock_in_location = $stockInLocation;
-                        $product->price = $product->price_regulated_reg; // Usar el precio regulado
+                        // Convertir todo a array directamente
+                        $productData = $product->toArray();
+                        $productData['lots'] = $lots->toArray();
+                        $productData['stock_in_location'] = $stockInLocation;
+                        $productData['price'] = $product->price_regulated_reg;
                         
-                        return $product;
+                        return $productData;
                     });
             });
                 
             Log::info('Productos cargados (desde cache o BD)', [
-                'total_productos' => $products->count(),
+                'total_productos' => count($products),
                 'location_id' => $b2bLocation->id,
                 'cache_key' => $cacheKey
             ]);
-            
-            // Log detallado de productos (opcional, comentar en producción)
-            if ($products->isEmpty()) {
-                Log::warning('No se encontraron productos activos');
-            } else {
-                Log::debug('Primeros 5 productos', [
-                    'productos' => $products->take(5)->map(function($p) {
-                        return [
-                            'id' => $p->id,
-                            'name' => $p->name ?? 'N/A',
-                            'stock' => $p->stock_in_location ?? 0,
-                            'price' => $p->price ?? 0
-                        ];
-                    })
-                ]);
-            }
         }
         
         // Categorías también en caché

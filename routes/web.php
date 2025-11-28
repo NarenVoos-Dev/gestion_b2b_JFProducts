@@ -69,12 +69,15 @@ Route::middleware([
     Route::prefix('/api/b2b')->name('api.b2b.')->group(function() {
         //Productos
         Route::get('/products', [PosApiController::class, 'searchProductsB2B'])->name('products.search');
-        //Carrito de compras  ============================================================================
-        Route::post('/cart/add', [PosApiController::class, 'addToCartB2B'])->name('cart.add');
-        Route::get('/cart', [PosApiController::class, 'getCartB2B'])->name('cart.get');
-        Route::put('/cart/update', [PosApiController::class, 'updateCartItemB2B'])->name('cart.update');
-        Route::delete('/cart/remove', [PosApiController::class, 'removeCartItemB2B'])->name('cart.remove');
-        //Pedidos ============================================================================================
+        
+        //Carrito de compras (Nuevo CartController)
+        Route::get('/cart', [\App\Http\Controllers\Api\CartController::class, 'get'])->name('cart.get');
+        Route::post('/cart/add', [\App\Http\Controllers\Api\CartController::class, 'add'])->name('cart.add');
+        Route::post('/cart/update', [\App\Http\Controllers\Api\CartController::class, 'update'])->name('cart.update');
+        Route::delete('/cart/remove/{id}', [\App\Http\Controllers\Api\CartController::class, 'remove'])->name('cart.remove');
+        Route::delete('/cart/clear', [\App\Http\Controllers\Api\CartController::class, 'clear'])->name('cart.clear');
+
+        //Pedidos
         Route::post('/pedidos', [PosApiController::class, 'storePedidoB2B'])->name('orders.store');
     });
  
