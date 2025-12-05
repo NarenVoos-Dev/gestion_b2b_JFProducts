@@ -29,6 +29,16 @@ class PosApiController extends Controller
             return response()->json(['message' => 'Acceso no autorizado'], 403);
         }
 
+        // Obtener cliente con su lista de precios
+        $client = \App\Models\Client::with('priceList')->find($user->client_id);
+        $pricePercentage = $client && $client->priceList ? $client->priceList->percentage : 0;
+        
+        Log::info('Lista de precios del cliente', [
+            'client_id' => $client->id ?? 'N/A',
+            'price_list_id' => $client->price_list_id ?? 'N/A',
+            'percentage' => $pricePercentage
+        ]);
+
         // 1. Buscamos la bodega que tiene el toggle activado para B2B
         $b2bLocation = Location::where('is_b2b_warehouse', true)->first();
         
@@ -66,20 +76,48 @@ class PosApiController extends Controller
         // Ejecutar consulta con relaciones
         $products = $query->with(['unitOfMeasure', 'category', 'laboratory'])->get();
         
-        // 3. Calcular stock para cada producto en la bodega B2B
-        $products = $products->map(function ($product) use ($locationId) {
+        // 3. Calcular stock y aplicar precio con incremento para cada producto
+        $products = $products->map(function ($product) use ($locationId, $pricePercentage) {
             $stockInLocation = \App\Models\ProductLot::where('product_id', $product->id)
                 ->where('location_id', $locationId)
                 ->sum('quantity');
             
+            // Obtener el costo del lote MÁS CARO que tenga cost > 0
+            $maxCost = \App\Models\ProductLot::where('product_id', $product->id)
+                ->where('location_id', $locationId)
+                ->where('quantity', '>', 0)
+                ->where('cost', '>', 0)
+                ->max('cost') ?? 0;
+            
+            // Fórmula correcta de Markup: Precio = Base / (1 - %/100)
+            if ($pricePercentage >= 100) {
+                // Evitar división por cero o negativo
+                $priceWithIncrease = $maxCost;
+            } else {
+                $priceWithIncrease = $maxCost / (1 - ($pricePercentage / 100));
+            }
+            
+            // VALIDACIÓN: Si supera el precio regulado, establecer en regulado - 1000
+            $priceRegulated = $product->price_regulated_reg ?? null;
+            if ($priceRegulated && $priceWithIncrease > $priceRegulated) {
+                $finalPrice = $priceRegulated - 1000;
+                $product->price_capped = true;
+            } else {
+                $finalPrice = $priceWithIncrease;
+                $product->price_capped = false;
+            }
+            
             $product->stock_in_location = $stockInLocation;
-            $product->price = $product->price_regulated_reg; // Usar precio regulado
+            $product->price = round($finalPrice, 2); // Precio con validación
+            $product->base_price = $maxCost; // Costo base (para referencia)
+            $product->price_regulated = $priceRegulated; // Para referencia
             
             return $product;
         });
         
         Log::info('Productos obtenidos', [
-            'total_productos' => $products->count()
+            'total_productos' => $products->count(),
+            'price_percentage_applied' => $pricePercentage
         ]);
         
         // Log de primeros productos (opcional, comentar en producción)
@@ -94,7 +132,8 @@ class PosApiController extends Controller
                         'id' => $p->id,
                         'name' => $p->name ?? 'N/A',
                         'stock' => $p->stock_in_location ?? 0,
-                        'price' => $p->price ?? 0
+                        'price' => $p->price ?? 0,
+                        'base_price' => $p->base_price ?? 0
                     ];
                 })
             ]);

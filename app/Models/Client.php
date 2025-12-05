@@ -40,11 +40,6 @@ class Client extends Model
         return $this->belongsTo(Business::class);
     }
     
-    public function zone(): BelongsTo
-    {
-        return $this->belongsTo(Zone::class);
-    }
-
     public function sales()
     {
         return $this->hasMany(\App\Models\Sale::class);

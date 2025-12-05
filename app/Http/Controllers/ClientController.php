@@ -10,7 +10,6 @@ use App\Models\Category;
 use App\Models\Client;
 use App\Models\UnitOfMeasure;
 use App\Models\Sale;
-use App\Models\Zone;
 use App\Models\Product;
 use App\Models\{CashSession, CashSessionTransaction,Location, Business};
 use Carbon\Carbon;
@@ -75,8 +74,16 @@ class ClientController extends Controller
             abort(403, 'Acceso no autorizado');
         }
 
-        $client = \App\Models\Client::findOrFail($user->client_id);
-        Log::info('Cliente encontrado', ['client_id' => $client->id, 'client_name' => $client->name ?? 'N/A']);
+        $client = \App\Models\Client::with('priceList')->findOrFail($user->client_id);
+        Log::info('Cliente encontrado', [
+            'client_id' => $client->id, 
+            'client_name' => $client->name ?? 'N/A',
+            'price_list_id' => $client->price_list_id,
+            'price_list_percentage' => $client->priceList->percentage ?? 0
+        ]);
+
+        // Obtener porcentaje de la lista de precios del cliente (0 si no tiene)
+        $pricePercentage = $client->priceList ? $client->priceList->percentage : 0;
 
         // 1. Buscamos la bodega designada para el catálogo B2B
         $b2bLocation = Location::where('is_b2b_warehouse', true)->first();
@@ -93,11 +100,13 @@ class ClientController extends Controller
         $products = collect([]);
         
         if ($b2bLocation) {
-            // 2. Usar caché para productos - se actualiza cada 5 minutos o cuando cambia el stock
+            // 2. Cachear productos BASE (sin precios personalizados)
             $cacheKey = 'b2b_products_location_' . $b2bLocation->id;
             
-            $products = Cache::remember($cacheKey, 300, function () use ($b2bLocation) {
-                Log::info('Cargando productos desde BD (cache miss)', ['location_id' => $b2bLocation->id]);
+            $productsBase = Cache::remember($cacheKey, 300, function () use ($b2bLocation) {
+                Log::info('Cargando productos desde BD (cache miss)', [
+                    'location_id' => $b2bLocation->id
+                ]);
                 
                 return Product::query()
                     ->where('is_active', true)
@@ -116,20 +125,55 @@ class ClientController extends Controller
                             ->orderBy('expiration_date', 'asc')
                             ->get(['lot_number', 'quantity', 'expiration_date', 'cost']);
                         
-                        // Convertir todo a array directamente
+                        // Obtener el costo del lote MÁS CARO (mayor valor) que tenga cost > 0
+                        $maxCost = $lots->where('cost', '>', 0)->max('cost') ?? 0;
+                        
+                        // Convertir a array SIN aplicar porcentaje
                         $productData = $product->toArray();
                         $productData['lots'] = $lots->toArray();
                         $productData['stock_in_location'] = $stockInLocation;
-                        $productData['price'] = $product->price_regulated_reg;
+                        $productData['base_cost'] = $maxCost; // Costo del lote más caro
                         
                         return $productData;
                     });
+            });
+            
+            // 3. Aplicar porcentaje DESPUÉS del caché (personalizado por cliente)
+            $products = $productsBase->map(function ($productData) use ($pricePercentage) {
+                $baseCost = $productData['base_cost'] ?? 0;
+                $priceRegulated = $productData['price_regulated_reg'] ?? null;
+                
+                // Fórmula correcta de Markup: Precio = Base / (1 - %/100)
+                // Ejemplo: Si base = 10,000 y % = 20, entonces: 10,000 / (1 - 0.20) = 10,000 / 0.80 = 12,500
+                if ($pricePercentage >= 100) {
+                    // Evitar división por cero o negativo
+                    $priceWithIncrease = $baseCost;
+                } else {
+                    $priceWithIncrease = $baseCost / (1 - ($pricePercentage / 100));
+                }
+                
+                // VALIDACIÓN: Si supera el precio regulado, establecer en regulado - 1000
+                if ($priceRegulated && $priceWithIncrease > $priceRegulated) {
+                    $finalPrice = $priceRegulated - 1000;
+                    $productData['price_capped'] = true; // Indicador de que se aplicó tope
+                } else {
+                    $finalPrice = $priceWithIncrease;
+                    $productData['price_capped'] = false;
+                }
+                
+                $productData['price'] = round($finalPrice, 2);
+                $productData['base_price'] = $baseCost; // Para referencia
+                $productData['price_percentage'] = $pricePercentage;
+                $productData['price_regulated'] = $priceRegulated; // Para referencia
+                
+                return $productData;
             });
                 
             Log::info('Productos cargados (desde cache o BD)', [
                 'total_productos' => count($products),
                 'location_id' => $b2bLocation->id,
-                'cache_key' => $cacheKey
+                'cache_key' => $cacheKey,
+                'price_percentage_applied' => $pricePercentage
             ]);
         }
         

@@ -13,7 +13,6 @@ use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\SalesExport;
 use Barryvdh\DomPDF\Facade\Pdf;
-use App\Models\Zone;
 
 class SalesReport extends Page implements HasForms
 {
@@ -29,7 +28,6 @@ class SalesReport extends Page implements HasForms
     public ?string $startDate = null;
     public ?string $endDate = null;
     public ?int $clientId = null;
-    public ?int $zoneId = null;
     public ?array $data = [];
 
     public function mount(): void
@@ -40,7 +38,6 @@ class SalesReport extends Page implements HasForms
             'startDate' => $this->startDate,
             'endDate' => $this->endDate,
             'clientId' => $this->clientId,
-            'zoneId' => $this->zoneId,
         ]);
     }
 
@@ -56,10 +53,7 @@ class SalesReport extends Page implements HasForms
                         Forms\Components\Select::make('clientId')->label('Cliente')
                             ->options(Client::query()->pluck('name', 'id'))
                             ->searchable()->placeholder('Todos los clientes'),
-                        Forms\Components\Select::make('zoneId')->label('Zona')
-                            ->options(Zone::query()->pluck('name', 'id'))
-                            ->searchable()->placeholder('Todas las zonas'),
-                    ])->columns(4),
+                    ])->columns(3),
             ])
             ->statePath('data');
     }
@@ -70,23 +64,17 @@ class SalesReport extends Page implements HasForms
         $this->startDate = $formData['startDate'];
         $this->endDate = $formData['endDate'];
         $this->clientId = $formData['clientId'];
-        $this->zoneId = $formData['zoneId'];
     }
 
     public function getSalesData()
     {
         $query = Sale::query()
-            ->with(['client.zone', 'items.product'])
+            ->with(['client', 'items.product'])
             ->where('business_id', auth()->user()->business_id)
             ->whereBetween('date', [$this->startDate, $this->endDate]);
         
         if ($this->clientId) {
             $query->where('client_id', $this->clientId);
-        }
-        if ($this->zoneId) {
-            $query->whereHas('client', function ($q) {
-                $q->where('zone_id', $this->zoneId);
-            });
         }
 
         return $query->get();

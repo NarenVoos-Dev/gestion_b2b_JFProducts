@@ -20,13 +20,35 @@ class CartController extends Controller
             ->with(['product.unitOfMeasure', 'product.laboratory'])
             ->get();
 
-        $subtotal = $cartItems->sum('subtotal');
-        $tax = $subtotal * 0.19; // IVA 19%
+        $subtotal = 0;
+        $tax = 0;
+        
+        // Calcular subtotal e IVA por producto
+        foreach ($cartItems as $item) {
+            $itemSubtotal = $item->price * $item->quantity;
+            $subtotal += $itemSubtotal;
+            
+            // Si el producto tiene IVA, calcularlo
+            if ($item->product->has_tax) {
+                $taxRate = $item->product->tax_rate ?? 19; // Default 19%
+                $tax += $itemSubtotal * ($taxRate / 100);
+            }
+        }
+        
         $total = $subtotal + $tax;
 
         return response()->json([
             'success' => true,
             'cart' => $cartItems->map(function ($item) {
+                $itemSubtotal = $item->price * $item->quantity;
+                $itemTax = 0;
+                $taxRate = 0;
+                
+                if ($item->product->has_tax) {
+                    $taxRate = $item->product->tax_rate ?? 19;
+                    $itemTax = $itemSubtotal * ($taxRate / 100);
+                }
+                
                 return [
                     'id' => $item->id,
                     'product_id' => $item->product_id,
@@ -34,15 +56,17 @@ class CartController extends Controller
                     'laboratory' => $item->product->laboratory->name ?? '',
                     'price' => $item->price,
                     'quantity' => $item->quantity,
-                    'subtotal' => $item->subtotal,
-                    'stock' => $item->product->stock_in_location ?? 0,
+                    'subtotal' => $itemSubtotal,
+                    'tax' => $itemTax,
+                    'tax_rate' => $taxRate,
+                    'has_tax' => $item->product->has_tax,
                     'image' => $item->product->image ?? '💊',
                 ];
             }),
             'summary' => [
-                'subtotal' => $subtotal,
-                'tax' => $tax,
-                'total' => $total,
+                'subtotal' => round($subtotal, 2),
+                'tax' => round($tax, 2),
+                'total' => round($total, 2),
                 'item_count' => $cartItems->count(),
             ]
         ]);
@@ -113,12 +137,39 @@ class CartController extends Controller
             $cartItem->quantity = $newQuantity;
             $cartItem->save();
         } else {
+            // Obtener cliente y su lista de precios
+            $user = Auth::user();
+            $client = \App\Models\Client::with('priceList')->find($user->client_id);
+            $pricePercentage = $client && $client->priceList ? $client->priceList->percentage : 0;
+            
+            // Obtener costo del lote más caro
+            $maxCost = \App\Models\ProductLot::where('product_id', $product->id)
+                ->where('location_id', $b2bLocation->id)
+                ->where('quantity', '>', 0)
+                ->where('cost', '>', 0)
+                ->max('cost') ?? 0;
+            
+            // Calcular precio con fórmula correcta: Base / (1 - %/100)
+            if ($pricePercentage >= 100) {
+                $calculatedPrice = $maxCost;
+            } else {
+                $calculatedPrice = $maxCost / (1 - ($pricePercentage / 100));
+            }
+            
+            // Validar contra precio regulado
+            $priceRegulated = $product->price_regulated_reg ?? null;
+            if ($priceRegulated && $calculatedPrice > $priceRegulated) {
+                $finalPrice = $priceRegulated - 1000;
+            } else {
+                $finalPrice = $calculatedPrice;
+            }
+            
             // Crear nuevo item
             $cartItem = CartItem::create([
                 'user_id' => Auth::id(),
                 'product_id' => $product->id,
                 'quantity' => $quantity,
-                'price' => $product->price_regulated_reg ?? 0,
+                'price' => round($finalPrice, 2),
             ]);
         }
 

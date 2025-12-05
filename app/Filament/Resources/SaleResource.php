@@ -11,7 +11,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use App\Models\Sale;
-use App\Models\Zone;
 use App\Models\Location; 
 use App\Models\Inventory;
 use App\Models\Product; 
@@ -55,11 +54,6 @@ class SaleResource extends Resource
                                     Forms\Components\TextInput::make('name')->label('Nombre del Cliente')->required(),
                                     Forms\Components\TextInput::make('document')->label('Documento'),
                                     Forms\Components\TextInput::make('phone')->label('Teléfono'),
-                                    Forms\Components\Select::make('zone_id')
-                                    ->label('Zona')
-                                    ->options(Zone::query()->where('business_id', auth()->user()->business_id)->pluck('name', 'id'))
-                                    ->searchable()
-                                    ->placeholder('Sin zona asignada'),
                                 ])->createOptionUsing(function (array $data): int {
                                     return \App\Models\Client::create($data)->id;
                                 }),

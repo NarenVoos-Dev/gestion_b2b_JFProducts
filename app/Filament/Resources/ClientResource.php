@@ -263,7 +263,6 @@ class ClientResource extends Resource
             ->with([
                 'priceList',
                 'user',
-                'zone',
             ]);
     }
 }
