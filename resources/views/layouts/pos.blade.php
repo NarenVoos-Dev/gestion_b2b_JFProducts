@@ -38,7 +38,7 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <!-- Cart Global Functions -->
-    <script src="{{ asset('js/cart.js') }}"></script>
+    <script src="{{ asset('js/cart-v2.js') }}"></script>
     
     @stack('scripts')
     <script>

@@ -405,15 +405,15 @@
         if (!product) return;
         
         // Console.log para ver toda la información del producto
-        console.log('=== INFORMACIÓN COMPLETA DEL PRODUCTO ===');
-        console.log('Product ID:', productId);
-        console.log('Datos completos:', product);
-        console.log('Lotes disponibles:', product.lots);
-        console.log('Laboratorio:', product.laboratory);
-        console.log('Molécula:', product.molecule);
-        console.log('Forma farmacéutica:', product.pharmaceutical_form);
-        console.log('Stock en bodega:', product.stock_in_location);
-        console.log('=========================================');
+        //console.log('=== INFORMACIÓN COMPLETA DEL PRODUCTO ===');
+        //console.log('Product ID:', productId);
+        //console.log('Datos completos:', product);
+        //console.log('Lotes disponibles:', product.lots);
+        //console.log('Laboratorio:', product.laboratory);
+        //console.log('Molécula:', product.molecule);
+        //console.log('Forma farmacéutica:', product.pharmaceutical_form);
+        //console.log('Stock en bodega:', product.stock_in_location);
+        //console.log('=========================================');
         
         currentProduct = product; // Guardar para usar en addToCartFromModal
 
@@ -650,6 +650,7 @@
             .then(response => {
                 if (response.success) {
                     renderCart(response);
+                    //console.log('Carga carrito', response);
                     updateCartBadge(response.summary.item_count);
                 }
             })
@@ -730,78 +731,7 @@
     }
     
     // Renderizar carrito
-    function renderCart(cartData) {
-        const cartItems = document.getElementById('cartItems');
-        const cartFooter = document.getElementById('cartFooter');
-        
-        if (!cartData || cartData.cart.length === 0) {
-            cartFooter.style.display = 'none';
-            cartItems.innerHTML = `
-                <div class="flex flex-col items-center justify-center h-full text-center">
-                    <svg class="w-24 h-24 text-gray-300 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <circle cx="9" cy="21" r="1"></circle>
-                        <circle cx="20" cy="21" r="1"></circle>
-                        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-                    </svg>
-                    <p class="text-gray-500 text-lg font-semibold">Tu carrito está vacío</p>
-                    <p class="text-gray-400 text-sm mt-2">Agrega productos para comenzar tu pedido</p>
-                </div>
-            `;
-            return;
-        }
-        
-        cartFooter.style.display = 'block';
-        
-        let html = '<div class="space-y-4">';
-        cartData.cart.forEach(item => {
-            // Calcular IVA del item si aplica
-            const itemTax = item.has_tax ? item.tax : 0;
-            const taxRate = item.tax_rate || 0;
-            const taxBadge = item.has_tax 
-                ? `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                     IVA ${taxRate}%: $${parseFloat(itemTax).toLocaleString('es-CO', {minimumFractionDigits: 0})}
-                   </span>`
-                : '';
-            
-            html += `
-                <div data-cart-item-id="${item.id}" class="bg-white rounded-xl p-4 shadow-sm border-2 border-gray-100 hover:border-[#0f4db3]/30 transition-all">
-                    <div class="flex gap-4">
-                        <div class="w-16 h-16 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg flex items-center justify-center text-3xl flex-shrink-0">
-                            ${item.image}
-                        </div>
-                        <div class="flex-1 min-w-0">
-                            <h4 class="font-bold text-gray-900 text-sm truncate">${item.name}</h4>
-                            <p class="text-xs text-gray-500">${item.laboratory}</p>
-                            <div class="flex items-center gap-2 mt-1">
-                                <p class="text-lg font-black text-[#0f4db3]">$${parseFloat(item.price).toLocaleString('es-CO')}</p>
-                                ${taxBadge}
-                            </div>
-                        </div>
-                        <button onclick="removeFromCart(${item.id})" class="text-red-500 hover:text-red-700 hover:bg-red-50 w-8 h-8 rounded-lg flex items-center justify-center transition-all flex-shrink-0">
-                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
-                            </svg>
-                        </button>
-                    </div>
-                    <div class="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-                        <div class="flex items-center bg-gray-100 rounded-lg overflow-hidden">
-                            <button onclick="updateQuantity(${item.id}, ${item.quantity - 1})" class="px-3 py-1 text-lg font-bold text-[#0f4db3] hover:bg-[#0f4db3]/10 transition-colors">−</button>
-                            <span class="px-4 py-1 font-bold text-gray-900 item-quantity">${item.quantity}</span>
-                            <button onclick="updateQuantity(${item.id}, ${item.quantity + 1})" class="px-3 py-1 text-lg font-bold text-[#0f4db3] hover:bg-[#0f4db3]/10 transition-colors">+</button>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-xs text-gray-500">Subtotal</div>
-                            <div class="font-bold text-gray-900">$${parseFloat(item.subtotal).toLocaleString('es-CO')}</div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        });
-        html += '</div>';
-        
-        cartItems.innerHTML = html;
-        updateCartTotals(cartData.summary);
-    }
+    
     
     // Actualizar cantidad con optimistic update mejorado
     function updateQuantity(cartItemId, newQuantity) {

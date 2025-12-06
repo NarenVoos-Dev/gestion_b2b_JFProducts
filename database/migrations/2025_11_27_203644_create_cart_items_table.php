@@ -17,6 +17,12 @@ return new class extends Migration
             $table->foreignId('product_id')->constrained()->onDelete('cascade');
             $table->integer('quantity')->default(1);
             $table->decimal('price', 10, 2)->comment('Precio al momento de agregar al carrito');
+            
+            // Información adicional para renderizado rápido del carrito
+            $table->string('image_url')->nullable()->comment('URL completa de la imagen del producto');
+            $table->string('product_name')->comment('Nombre del producto');
+            $table->string('laboratory')->nullable()->comment('Nombre del laboratorio');
+            
             $table->timestamps();
             
             // Índice único para evitar duplicados del mismo producto por usuario

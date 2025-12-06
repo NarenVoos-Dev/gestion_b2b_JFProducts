@@ -197,8 +197,9 @@ class PosApiController extends Controller
                 'unit_name' => $unit->name,
                 'conversion_factor' => $unit->conversion_factor,
                 'tax_rate' => $product->tax_rate ?? 0,
-                'image_url' => $product->image_url ?? null,
+                'image_url' => $product->image_url,  // Guardar URL completa directamente
                 'laboratory' => $product->laboratory?->name ?? 'Sin laboratorio',
+                'id' => $product->id,  // Agregar id para el frontend
             ];
             
             Log::info('Nuevo producto agregado', [
@@ -234,42 +235,16 @@ class PosApiController extends Controller
         $subtotal = 0;
         $tax = 0;
 
-        // Mapear items para asegurar que tengan image_url
-        $mappedCart = [];
-        foreach ($cart as $key => $item) {
+        foreach ($cart as $item) {
             $itemSubtotal = $item['price'] * $item['quantity'];
             $subtotal += $itemSubtotal;
             $tax += $itemSubtotal * ($item['tax_rate'] / 100);
-            
-            // Asegurar que el item tenga image_url (para compatibilidad con items antiguos)
-            if (!isset($item['image_url']) && isset($item['image'])) {
-                $item['image_url'] = $item['image'];
-            }
-            
-            // Si no tiene image_url, obtenerlo del producto
-            if (!isset($item['image_url']) || empty($item['image_url'])) {
-                $product = Product::find($item['product_id']);
-                $item['image_url'] = $product ? $product->image_url : null;
-            }
-            
-            // Asegurar que tenga laboratory
-            if (!isset($item['laboratory']) || empty($item['laboratory'])) {
-                $product = $product ?? Product::with('laboratory')->find($item['product_id']);
-                $item['laboratory'] = $product?->laboratory?->name ?? 'Sin laboratorio';
-            }
-            
-            // Asegurar que tenga id (para el frontend)
-            if (!isset($item['id'])) {
-                $item['id'] = $item['product_id'];
-            }
-            
-            $mappedCart[] = $item;
         }
 
         $total = $subtotal + $tax;
 
         return response()->json([
-            'cart' => $mappedCart,
+            'cart' => array_values($cart),
             'summary' => [
                 'subtotal' => $subtotal,
                 'tax' => $tax,

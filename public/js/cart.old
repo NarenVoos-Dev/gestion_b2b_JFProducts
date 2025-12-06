@@ -91,7 +91,13 @@ function renderCart(cartData) {
     cartFooter.style.display = 'block';
     
     let html = '<div class="space-y-4">';
+    console.log('=== RENDERIZANDO CARRITO ===');
+    console.log('Total items:', cartData.cart.length);
     cartData.cart.forEach(item => {
+        console.log('Item:', item.name);
+        console.log('  - image_url:', item.image_url);
+        console.log('  - image:', item.image);
+        console.log('  - laboratory:', item.laboratory);
         // Calcular IVA del item si aplica
         const itemTax = item.has_tax ? item.tax : 0;
         const taxRate = item.tax_rate || 0;

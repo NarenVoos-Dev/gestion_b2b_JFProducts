@@ -17,7 +17,7 @@ class CartController extends Controller
     public function get()
     {
         $cartItems = CartItem::where('user_id', Auth::id())
-            ->with(['product.unitOfMeasure', 'product.laboratory'])
+            ->with('product:id,has_tax,tax_rate')  // Solo cargar campos necesarios del producto
             ->get();
 
         $subtotal = 0;
@@ -52,15 +52,15 @@ class CartController extends Controller
                 return [
                     'id' => $item->id,
                     'product_id' => $item->product_id,
-                    'name' => $item->product->name,
-                    'laboratory' => $item->product->laboratory->name ?? '',
+                    'name' => $item->product_name,  // Usar campo guardado
+                    'laboratory' => $item->laboratory ?? 'Sin laboratorio',  // Usar campo guardado
                     'price' => $item->price,
                     'quantity' => $item->quantity,
                     'subtotal' => $itemSubtotal,
                     'tax' => $itemTax,
                     'tax_rate' => $taxRate,
                     'has_tax' => $item->product->has_tax,
-                    'image' => $item->product->image ?? '💊',
+                    'image_url' => $item->image_url ?? asset('img/no-image.png'),  // Usar campo guardado
                 ];
             }),
             'summary' => [
@@ -170,6 +170,9 @@ class CartController extends Controller
                 'product_id' => $product->id,
                 'quantity' => $quantity,
                 'price' => round($finalPrice, 2),
+                'product_name' => $product->name,
+                'image_url' => $product->image_url,
+                'laboratory' => $product->laboratory?->name,
             ]);
         }
 
