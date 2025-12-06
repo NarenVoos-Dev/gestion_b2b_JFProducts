@@ -100,7 +100,7 @@ class PosApiController extends Controller
             // VALIDACIÓN: Si supera el precio regulado, establecer en regulado - 1000
             $priceRegulated = $product->price_regulated_reg ?? null;
             if ($priceRegulated && $priceWithIncrease > $priceRegulated) {
-                $finalPrice = $priceRegulated - 1000;
+                $finalPrice = $priceRegulated - 100;
                 $product->price_capped = true;
             } else {
                 $finalPrice = $priceWithIncrease;
@@ -197,7 +197,8 @@ class PosApiController extends Controller
                 'unit_name' => $unit->name,
                 'conversion_factor' => $unit->conversion_factor,
                 'tax_rate' => $product->tax_rate ?? 0,
-                'image' => $product->image_url ?? null,
+                'image_url' => $product->image_url ?? null,
+                'laboratory' => $product->laboratory?->name ?? 'Sin laboratorio',
             ];
             
             Log::info('Nuevo producto agregado', [
@@ -233,16 +234,42 @@ class PosApiController extends Controller
         $subtotal = 0;
         $tax = 0;
 
-        foreach ($cart as $item) {
+        // Mapear items para asegurar que tengan image_url
+        $mappedCart = [];
+        foreach ($cart as $key => $item) {
             $itemSubtotal = $item['price'] * $item['quantity'];
             $subtotal += $itemSubtotal;
             $tax += $itemSubtotal * ($item['tax_rate'] / 100);
+            
+            // Asegurar que el item tenga image_url (para compatibilidad con items antiguos)
+            if (!isset($item['image_url']) && isset($item['image'])) {
+                $item['image_url'] = $item['image'];
+            }
+            
+            // Si no tiene image_url, obtenerlo del producto
+            if (!isset($item['image_url']) || empty($item['image_url'])) {
+                $product = Product::find($item['product_id']);
+                $item['image_url'] = $product ? $product->image_url : null;
+            }
+            
+            // Asegurar que tenga laboratory
+            if (!isset($item['laboratory']) || empty($item['laboratory'])) {
+                $product = $product ?? Product::with('laboratory')->find($item['product_id']);
+                $item['laboratory'] = $product?->laboratory?->name ?? 'Sin laboratorio';
+            }
+            
+            // Asegurar que tenga id (para el frontend)
+            if (!isset($item['id'])) {
+                $item['id'] = $item['product_id'];
+            }
+            
+            $mappedCart[] = $item;
         }
 
         $total = $subtotal + $tax;
 
         return response()->json([
-            'cart' => array_values($cart), // Convertir a array indexado
+            'cart' => $mappedCart,
             'summary' => [
                 'subtotal' => $subtotal,
                 'tax' => $tax,

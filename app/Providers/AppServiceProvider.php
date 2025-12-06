@@ -24,6 +24,9 @@ class AppServiceProvider extends ServiceProvider
     {
         // Registrar observer para invalidar caché cuando cambian los lotes
         \App\Models\ProductLot::observe(\App\Observers\ProductLotObserver::class);
+        
+        // Registrar observer para manejar imágenes de productos
+        \App\Models\Product::observe(\App\Observers\ProductObserver::class);
     }
 
     protected $policies = [

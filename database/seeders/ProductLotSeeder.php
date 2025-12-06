@@ -25,7 +25,9 @@ class ProductLotSeeder extends Seeder
             echo "   Creando bodega B2B por defecto...\n";
             
             $b2bLocation = Location::create([
-                'name' => 'Bodega B2B - Catálogo Online',
+                'business_id' => 1,
+                'name' => 'Principal',
+                'is_primary' => true,
                 'address' => 'Dirección principal',
                 'is_b2b_warehouse' => true,
             ]);
@@ -64,7 +66,14 @@ class ProductLotSeeder extends Seeder
             for ($i = 1; $i <= $numberOfLots; $i++) {
                 $lotNumber = 'LOT-' . date('Y') . '-' . str_pad($product->id, 4, '0', STR_PAD_LEFT) . '-' . $i;
                 $quantity = rand(10, 200); // Cantidad aleatoria entre 10 y 200
-                $cost = $product->price_regulated_reg * 0.6; // Costo = 60% del precio de venta
+                
+                // Generar costo realista basado en rangos de productos farmacéuticos
+                // Costos típicos: medicamentos genéricos $5,000-$50,000
+                $baseCost = rand(5000, 50000);
+                
+                // Agregar variación por lote (algunos lotes son más caros que otros)
+                $costVariation = rand(80, 120) / 100; // Variación del 80% al 120%
+                $cost = round($baseCost * $costVariation, 2);
                 $expirationDate = Carbon::now()->addMonths(rand(6, 36)); // Vence entre 6 y 36 meses
                 
                 ProductLot::create([
@@ -79,7 +88,7 @@ class ProductLotSeeder extends Seeder
                 $lotCount++;
             }
             
-            echo "  ✅ {$product->name} - {$numberOfLots} lote(s) creado(s)\n";
+            echo "  ✅ {$product->name} - {$numberOfLots} lote(s) creado(s) con costos entre $5K-$50K\n";
         }
         
         echo "\n🎉 Seeder completado!\n";

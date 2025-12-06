@@ -40,6 +40,8 @@ class Product extends Model
         'is_active',
         'has_tax',
         'tax_rate',
+        'image',
+        'unit',
     ];
 
     /**
@@ -55,6 +57,20 @@ class Product extends Model
         'has_tax' => 'boolean',
         'tax_rate' => 'decimal:2',
     ];
+
+    /**
+     * Atributos que se agregan a la serialización del modelo
+     */
+    protected $appends = ['image_url'];
+
+    /**
+     * Accessor para obtener la URL completa de la imagen
+     */
+    public function getImageUrlAttribute(): string
+    {
+        return \App\Helpers\ProductImageHelper::getProductImageUrl($this->image);
+    }
+
 
 
     //Nombre comercial

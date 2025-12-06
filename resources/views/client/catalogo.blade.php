@@ -185,9 +185,10 @@
                         <!-- Imagen del producto con gradiente -->
                         <div class="relative h-48 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden">
                             <div class="absolute inset-0 bg-gradient-to-br from-[#0f4db3]/5 to-[#028dff]/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                            <span class="text-7xl relative z-10 transform group-hover:scale-110 transition-transform duration-500">
-                                ${product.image ?? '�'}
-                            </span>
+                            <img src="${product.image_url || '/img/no-image.png'}" 
+                                 alt="${product.name}" 
+                                 class="w-full h-full object-contain p-4 relative z-10 transform group-hover:scale-110 transition-transform duration-500"
+                                 onerror="this.src='/img/no-image.png'">
                             
                             <!-- Badge de stock en esquina -->
                             <div class="absolute top-3 right-3 ${stockColorClass} text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">
@@ -421,7 +422,9 @@
         $('#modalProductName').text(product.name || 'Sin nombre');
         $('#modalDescription').text(product.description || 'Sin descripción disponible');
         $('#modalPrice').text(`$${parseFloat(product.price || 0).toLocaleString('es-CO')}`);
-        $('#modalMainImage').text(product.image || '💊');
+        // Actualizar imagen del producto en el modal
+        $('#modalProductImage').attr('src', product.image_url || '/img/no-image.png');
+        $('#modalProductImage').attr('alt', product.name);
 
         // Información técnica
         $('#modalMolecule').text(product.molecule?.name || '-');
@@ -550,8 +553,11 @@
 
     // Función para abrir lightbox de imagen
     function openImageLightbox() {
-        const imageContent = $('#modalMainImage').text();
-        $('#lightboxImage').text(imageContent);
+        // Obtener la URL de la imagen del producto actual
+        const imageUrl = currentProduct?.image_url || $('#modalProductImage').attr('src') || '/img/no-image.png';
+        
+        // Actualizar la imagen del lightbox
+        $('#lightboxImage').attr('src', imageUrl);
         
         const lightbox = $('#imageLightbox');
         lightbox.removeClass('opacity-0 invisible');

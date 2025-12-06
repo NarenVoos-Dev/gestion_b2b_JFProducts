@@ -36,6 +36,10 @@
     <script src="https://unpkg.com/@popperjs/core@2"></script>
     <script src="https://unpkg.com/tippy.js@6"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    <!-- Cart Global Functions -->
+    <script src="{{ asset('js/cart.js') }}"></script>
+    
     @stack('scripts')
     <script>
         function toggleSidebar() {
@@ -65,18 +69,26 @@
             });
         }
 
-        // Función para mostrar notificaciones toast
+        // Función para mostrar notificaciones toast mejoradas
         function showNotification(message, type = 'success') {
             const Toast = Swal.mixin({
                 toast: true,
-                position: 'top-end',
+                position: 'bottom-right',
                 showConfirmButton: false,
-                timer: 3000,
+                timer: 2000,
                 timerProgressBar: true,
+                customClass: {
+                    popup: 'colored-toast'
+                },
+                // NO pausar el timer al pasar el mouse
                 didOpen: (toast) => {
-                    toast.addEventListener('mouseenter', Swal.stopTimer)
-                    toast.addEventListener('mouseleave', Swal.resumeTimer)
-                }
+                    toast.style.cursor = 'default';
+                },
+                background: type === 'success' ? '#10b981' : 
+                           type === 'error' ? '#ef4444' : 
+                           type === 'info' ? '#3b82f6' : '#f59e0b',
+                color: '#ffffff',
+                iconColor: '#ffffff'
             });
 
             Toast.fire({
@@ -92,6 +104,23 @@
                 badge.textContent = count;
                 badge.style.display = count > 0 ? 'flex' : 'none';
             }
+        }
+
+        // Función para actualizar el subtotal del modal cuando cambia la cantidad
+        function updateModalSubtotal() {
+            const quantityInput = document.getElementById('quantityInput');
+            const modalPrice = document.getElementById('modalPrice');
+            const modalSubtotal = document.getElementById('modalSubtotal');
+            
+            if (!quantityInput || !modalPrice || !modalSubtotal) return;
+            
+            const quantity = parseInt(quantityInput.value) || 1;
+            // Remover el símbolo $ y los puntos de miles, dejar solo números y comas decimales
+            const priceText = modalPrice.textContent.replace(/\$/g, '').replace(/\./g, '').replace(/,/g, '.');
+            const price = parseFloat(priceText) || 0;
+            
+            const subtotal = price * quantity;
+            modalSubtotal.textContent = '$' + subtotal.toLocaleString('es-CO', {minimumFractionDigits: 0, maximumFractionDigits: 0});
         }
     </script>
         

@@ -18,9 +18,11 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\BadgeColumn;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Forms\Get;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class ProductResource extends Resource
 {
@@ -85,6 +87,38 @@ class ProductResource extends Resource
                                             ]),
                                     ])
                                     ->columns(1),
+                                
+                                // Sección de Imagen del Producto
+                                Section::make('Imagen del Producto')
+                                    ->description('Sube una imagen representativa del producto')
+                                    ->icon('heroicon-o-photo')
+                                    ->schema([
+                                        Forms\Components\FileUpload::make('image')
+                                            ->label('Imagen del Producto')
+                                            ->image()
+                                            ->directory(function ($get, $record) {
+                                                // Siempre usar el nombre del formulario, no el record
+                                                $productName = $get('name') ?? $record?->name ?? 'temp';
+                                                return 'products/' . \Illuminate\Support\Str::slug($productName);
+                                            })
+                                            ->getUploadedFileNameForStorageUsing(
+                                                fn (TemporaryUploadedFile $file): string => 'producto.' . $file->getClientOriginalExtension()
+                                            )
+                                            ->disk('public')
+                                            ->visibility('public')
+                                            ->maxSize(2048)
+                                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                                            ->imageEditor()
+                                            ->imageEditorAspectRatios([
+                                                '1:1',
+                                                '4:3',
+                                                '16:9',
+                                            ])
+                                            ->helperText('Formatos: JPG, PNG, WEBP. Máximo 2MB. La imagen se guardará como "producto.[ext]"')
+                                            ->columnSpanFull(),
+                                    ])
+                                    ->collapsible()
+                                    ->collapsed(),
                             ]),
                         
                         // TAB 2: Clasificación Farmacéutica
@@ -187,7 +221,6 @@ class ProductResource extends Resource
                                             ->schema([
                                                 TextInput::make('price_regulated_reg')
                                                     ->label('Precio Regulado Regional')
-                                                    ->required()
                                                     ->numeric()
                                                     ->prefix('$')
                                                     ->placeholder('0.00'),
@@ -283,6 +316,12 @@ class ProductResource extends Resource
     {
         return $table
             ->columns([
+                ImageColumn::make('image_url')
+                    ->label('Imagen')
+                    ->circular()
+                    ->size(50)
+                    ->defaultImageUrl(url('/img/no-image.png')),
+                
                 TextColumn::make('name')
                     ->label('Producto')
                     ->searchable()
@@ -318,13 +357,6 @@ class ProductResource extends Resource
                     ->badge()
                     ->toggleable()
                     ->color('success'),
-                
-                TextColumn::make('price_regulated_reg')
-                    ->label('Precio')
-                    ->money('cop')
-                    ->sortable()
-                    ->weight('bold')
-                    ->color('primary'),
                 
                 TextColumn::make('total_stock')
                     ->label('Stock')

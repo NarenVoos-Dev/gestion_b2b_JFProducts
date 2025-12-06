@@ -18,8 +18,12 @@
                 <div class="relative flex-shrink-0">
                     <div id="modalMainImage" 
                          onclick="openImageLightbox()" 
-                         class="w-full h-64 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl flex items-center justify-center text-8xl shadow-lg border-4 border-gray-100 cursor-pointer hover:border-[#0f4db3] transition-all duration-300 hover:scale-105">
-                        💊
+                         class="w-full h-64 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl flex items-center justify-center shadow-lg border-4 border-gray-100 cursor-pointer hover:border-[#0f4db3] transition-all duration-300 hover:scale-105 overflow-hidden">
+                        <img id="modalProductImage" 
+                             src="/img/no-image.png" 
+                             alt="Producto" 
+                             class="w-full h-full object-contain p-4"
+                             onerror="this.src='/img/no-image.png'">
                     </div>
                     <div class="absolute bottom-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-xs">
                         🔍 Clic para ampliar
@@ -140,7 +144,9 @@
                                 −
                             </button>
                             <input type="number" id="quantityInput" value="1" min="1" max="100" 
-                                   class="w-16 text-center font-bold text-lg border-none bg-transparent focus:outline-none">
+                                   class="w-16 text-center font-bold text-lg border-none bg-transparent focus:outline-none"
+                                   onchange="updateModalSubtotal()"
+                                   onkeyup="updateModalSubtotal()">
                             <button onclick="changeQuantity(1)" class="px-3 py-2 text-xl font-bold text-[#0f4db3] hover:bg-[#0f4db3]/10 transition-colors">
                                 +
                             </button>
@@ -171,7 +177,9 @@
     <button onclick="closeImageLightbox()" class="absolute top-4 right-4 bg-white/20 hover:bg-white/30 backdrop-blur-md border-none w-12 h-12 rounded-full cursor-pointer text-white text-3xl transition-all duration-300 flex items-center justify-center hover:scale-110 z-10">
         ×
     </button>
-    <div id="lightboxImage" class="text-[20rem] transform transition-transform duration-300 scale-75">
-        💊
-    </div>
+    <img id="lightboxImage" 
+         src="/img/no-image.png" 
+         alt="Producto" 
+         class="max-w-[90vw] max-h-[90vh] object-contain transform transition-transform duration-300 scale-75 rounded-lg shadow-2xl"
+         onerror="this.src='/img/no-image.png'">
 </div>
