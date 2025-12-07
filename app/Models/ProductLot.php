@@ -20,6 +20,7 @@ class ProductLot extends Model
         'expiration_date',
         'quantity',
         'cost',
+        'is_active',
         //'stock_minimo',
     ];
 
@@ -27,6 +28,7 @@ class ProductLot extends Model
         'expiration_date' => 'date',
         'quantity' => 'decimal:2',
         'cost' => 'decimal:2',
+        'is_active' => 'boolean',
         //'stock_minimo' => 'decimal:2',
     ];
 

@@ -73,6 +73,8 @@ Route::middleware([
         //Carrito de compras (Nuevo CartController)
         Route::get('/cart', [\App\Http\Controllers\Api\CartController::class, 'get'])->name('cart.get');
         Route::post('/cart/add', [\App\Http\Controllers\Api\CartController::class, 'add'])->name('cart.add');
+        Route::post('/cart/confirm-lot-update', [\App\Http\Controllers\Api\CartController::class, 'confirmLotUpdate'])->name('cart.confirm-lot-update');
+        Route::post('/cart/assign-lot', [\App\Http\Controllers\Api\CartController::class, 'assignLot'])->name('cart.assign-lot');
         Route::post('/cart/update', [\App\Http\Controllers\Api\CartController::class, 'update'])->name('cart.update');
         Route::delete('/cart/remove/{id}', [\App\Http\Controllers\Api\CartController::class, 'remove'])->name('cart.remove');
         Route::delete('/cart/clear', [\App\Http\Controllers\Api\CartController::class, 'clear'])->name('cart.clear');

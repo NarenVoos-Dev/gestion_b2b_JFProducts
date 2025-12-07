@@ -23,10 +23,16 @@ return new class extends Migration
             $table->string('product_name')->comment('Nombre del producto');
             $table->string('laboratory')->nullable()->comment('Nombre del laboratorio');
             
+            // Información del lote (opcional - admin puede asignar después)
+            $table->foreignId('product_lot_id')->nullable()->constrained('product_lots')->onDelete('set null')->comment('Lote seleccionado por el cliente');
+            $table->string('lot_number')->nullable()->comment('Número de lote para referencia rápida');
+            $table->date('expiration_date')->nullable()->comment('Fecha de vencimiento del lote');
+            
             $table->timestamps();
             
-            // Índice único para evitar duplicados del mismo producto por usuario
-            $table->unique(['user_id', 'product_id']);
+            // Índice único: mismo producto + mismo lote = actualizar cantidad
+            // Si no hay lote, permite múltiples items del mismo producto
+            $table->unique(['user_id', 'product_id', 'product_lot_id'], 'cart_user_product_lot_unique');
         });
     }
 

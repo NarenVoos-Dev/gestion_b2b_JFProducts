@@ -18,11 +18,15 @@ class CartItem extends Model
         'product_name',
         'image_url',
         'laboratory',
+        'product_lot_id',
+        'lot_number',
+        'expiration_date',
     ];
 
     protected $casts = [
         'quantity' => 'integer',
         'price' => 'decimal:2',
+        'expiration_date' => 'date',
     ];
 
     /**
@@ -39,6 +43,14 @@ class CartItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    /**
+     * Un item del carrito puede pertenecer a un lote específico (opcional)
+     */
+    public function productLot(): BelongsTo
+    {
+        return $this->belongsTo(ProductLot::class);
     }
 
     /**

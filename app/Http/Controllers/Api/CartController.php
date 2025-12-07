@@ -61,6 +61,9 @@ class CartController extends Controller
                     'tax_rate' => $taxRate,
                     'has_tax' => $item->product->has_tax,
                     'image_url' => $item->image_url ?? asset('img/no-image.png'),  // Usar campo guardado
+                    'lot_number' => $item->lot_number,
+                    'expiration_date' => $item->expiration_date?->format('Y-m-d'),
+                    'product_lot_id' => $item->product_lot_id,
                 ];
             }),
             'summary' => [
@@ -85,6 +88,7 @@ class CartController extends Controller
         $request->validate([
             'product_id' => 'required|exists:products,id',
             'quantity' => 'integer|min:1',
+            'product_lot_id' => 'nullable|exists:product_lots,id',  // Lote OPCIONAL
         ]);
 
         $product = Product::findOrFail($request->product_id);
@@ -119,13 +123,39 @@ class CartController extends Controller
             ], 400);
         }
 
-        // Buscar si ya existe en el carrito
+        // Buscar si ya existe en el carrito (mismo producto, cualquier lote)
         $cartItem = CartItem::where('user_id', Auth::id())
             ->where('product_id', $product->id)
             ->first();
 
         if ($cartItem) {
-            // Verificar que la nueva cantidad no exceda el stock
+            // CASO 1: Item existe SIN lote y ahora se seleccionó un lote
+            if ($cartItem->product_lot_id === null && $request->product_lot_id) {
+                // Obtener información del lote
+                $lot = \App\Models\ProductLot::find($request->product_lot_id);
+                
+                // Validar stock del lote
+                if ($lot && $quantity > $lot->quantity) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Stock insuficiente en el lote seleccionado. Disponible: {$lot->quantity} unidades",
+                    ], 400);
+                }
+                
+                // Devolver respuesta especial pidiendo confirmación
+                return response()->json([
+                    'success' => false,
+                    'requires_confirmation' => true,
+                    'message' => 'Ya tienes este producto en el carrito sin lote asignado. ¿Deseas actualizar con el lote seleccionado?',
+                    'cart_item_id' => $cartItem->id,
+                    'current_quantity' => $cartItem->quantity,
+                    'new_quantity' => $quantity,
+                    'lot_id' => $lot->id,
+                    'lot_number' => $lot->lot_number,
+                ], 200);
+            }
+            
+            // CASO 2: Simplemente sumar cantidad (mismo lote o ambos sin lote)
             $newQuantity = $cartItem->quantity + $quantity;
             if ($newQuantity > $stock) {
                 return response()->json([
@@ -164,6 +194,20 @@ class CartController extends Controller
                 $finalPrice = $calculatedPrice;
             }
             
+            // Obtener información del lote si fue seleccionado
+            $lot = null;
+            if ($request->product_lot_id) {
+                $lot = \App\Models\ProductLot::find($request->product_lot_id);
+                
+                // Validar que el lote tenga stock suficiente
+                if ($lot && $quantity > $lot->quantity) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Stock insuficiente en el lote seleccionado. Disponible: {$lot->quantity} unidades",
+                    ], 400);
+                }
+            }
+            
             // Crear nuevo item
             $cartItem = CartItem::create([
                 'user_id' => Auth::id(),
@@ -173,6 +217,9 @@ class CartController extends Controller
                 'product_name' => $product->name,
                 'image_url' => $product->image_url,
                 'laboratory' => $product->laboratory?->name,
+                'product_lot_id' => $lot?->id,
+                'lot_number' => $lot?->lot_number,
+                'expiration_date' => $lot?->expiration_date,
             ]);
         }
 
@@ -262,6 +309,69 @@ class CartController extends Controller
             'success' => true,
             'message' => 'Carrito vaciado',
             'cart_count' => 0,
+        ]);
+    }
+
+    /**
+     * Confirmar actualización de lote en item existente
+     */
+    public function confirmLotUpdate(Request $request)
+    {
+        $request->validate([
+            'cart_item_id' => 'required|exists:cart_items,id',
+            'lot_id' => 'required|exists:product_lots,id',
+            'quantity' => 'required|integer|min:1',
+        ]);
+
+        $cartItem = CartItem::where('id', $request->cart_item_id)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        $lot = \App\Models\ProductLot::findOrFail($request->lot_id);
+
+        // Actualizar item con información del lote y sumar cantidad
+        $cartItem->update([
+            'quantity' => $cartItem->quantity + $request->quantity,
+            'product_lot_id' => $lot->id,
+            'lot_number' => $lot->lot_number,
+            'expiration_date' => $lot->expiration_date,
+        ]);
+
+        $cartCount = CartItem::where('user_id', Auth::id())->count();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Producto actualizado con lote seleccionado',
+            'cart_count' => $cartCount,
+        ]);
+    }
+
+    /**
+     * Asignar lote a item existente (desde el carrito)
+     */
+    public function assignLot(Request $request)
+    {
+        $request->validate([
+            'cart_item_id' => 'required|exists:cart_items,id',
+            'lot_id' => 'required|exists:product_lots,id',
+        ]);
+
+        $cartItem = CartItem::where('id', $request->cart_item_id)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        $lot = \App\Models\ProductLot::findOrFail($request->lot_id);
+
+        // Actualizar item con información del lote (SIN cambiar cantidad)
+        $cartItem->update([
+            'product_lot_id' => $lot->id,
+            'lot_number' => $lot->lot_number,
+            'expiration_date' => $lot->expiration_date,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Lote asignado correctamente',
         ]);
     }
 }

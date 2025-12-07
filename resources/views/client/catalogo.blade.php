@@ -401,6 +401,7 @@
     let currentProduct = null; // Variable global para el producto actual
 
     function openProductModal(productId) {
+        console.log('Abriendo modal para el producto:', productId);
         const product = allProducts.find(p => p.id === productId);
         if (!product) return;
         
@@ -526,7 +527,10 @@
         } else {
             lotsHTML = '<div class="text-center text-gray-500 text-sm py-4">No hay lotes disponibles</div>';
         }
-        $('#modalLots').html(lotsHTML);
+        // Renderizar lotes con paginación
+        allProductLots = product.lots || [];
+        currentLotsPage = 1;
+        renderProductLots(allProductLots, 1);
 
         // Configurar cantidad
         $('#quantityInput').val(1).attr('max', stock);
@@ -603,15 +607,99 @@
         if (!currentProduct) return;
         const quantity = parseInt($('#quantityInput').val()) || 1;
         
-        // Aquí llamarías a tu función de agregar al carrito
-        quickAddToCart(currentProduct.id, quantity);
+        // Capturar lote seleccionado (opcional)
+        const selectedLot = document.querySelector('input[name="selectedLot"]:checked');
+        const productLotId = selectedLot ? selectedLot.value : null;
+        
+        console.log('=== addToCartFromModal ===');
+        console.log('Lote seleccionado:', selectedLot);
+        console.log('product_lot_id:', productLotId);
+        console.log('Cantidad:', quantity);
+        
+        // Llamar a función de agregar con lote
+        quickAddToCart(currentProduct.id, quantity, productLotId);
         closeModal();
     }
 
     
-    function quickAddToCart(productId, quantity = 1) {
-        // Simplemente llamamos a la función addToCart que usa localStorage
-        addToCart(productId, quantity);
+    function quickAddToCart(productId, quantity = 1, productLotId = null) {
+        // Llamar a addToCart con el lote seleccionado
+        addToCart(productId, quantity, productLotId);
+    }
+
+    // Función para agregar producto al carrito (con lote opcional)
+    function addToCart(productId, quantity = 1, productLotId = null) {
+        const data = {
+            product_id: productId,
+            quantity: quantity,
+            product_lot_id: productLotId  // Puede ser null si no se seleccionó lote
+        };
+        
+        console.log('=== addToCart - Datos a enviar ===');
+        console.log('Data:', data);
+
+        apiRequest('{{ url("/api/b2b/cart/add") }}', 'POST', data)
+            .then(response => {
+                // CASO ESPECIAL: Requiere confirmación del usuario
+                if (response.requires_confirmation) {
+                    Swal.fire({
+                        title: '¿Actualizar con lote?',
+                        html: `
+                            <p>${response.message}</p>
+                            <div class="mt-3 text-left">
+                                <p class="text-sm text-gray-600"><strong>Lote seleccionado:</strong> ${response.lot_number}</p>
+                                <p class="text-sm text-gray-600"><strong>Cantidad actual:</strong> ${response.current_quantity}</p>
+                                <p class="text-sm text-gray-600"><strong>Cantidad a agregar:</strong> ${response.new_quantity}</p>
+                                <p class="text-sm text-gray-600"><strong>Total:</strong> ${response.current_quantity + response.new_quantity}</p>
+                            </div>
+                        `,
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonText: 'Sí, actualizar',
+                        cancelButtonText: 'No, cancelar',
+                        confirmButtonColor: '#0f4db3',
+                        cancelButtonColor: '#6c757d',
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            // Usuario confirmó - llamar endpoint de confirmación
+                            apiRequest('{{ url("/api/b2b/cart/confirm-lot-update") }}', 'POST', {
+                                cart_item_id: response.cart_item_id,
+                                lot_id: response.lot_id,
+                                quantity: response.new_quantity,
+                            })
+                            .then(confirmResponse => {
+                                showNotification(confirmResponse.message, 'success');
+                                updateCartBadge(confirmResponse.cart_count);
+                                loadCart();
+                            })
+                            .catch(error => {
+                                showNotification(error.message || 'Error al actualizar', 'error');
+                            });
+                        } else {
+                            // Usuario canceló - no hacer nada
+                            showNotification('Operación cancelada', 'info');
+                        }
+                    });
+                    return; // Salir aquí, no continuar con el flujo normal
+                }
+                
+                // Flujo normal: producto agregado exitosamente
+                if (response.success) {
+                    showNotification(
+                        productLotId 
+                            ? 'Producto agregado al carrito con lote seleccionado' 
+                            : 'Producto agregado al carrito. El administrador asignará el lote',
+                        'success'
+                    );
+                    updateCartBadge(response.cart_count);
+                    loadCart(); // Recargar carrito
+                } else {
+                    showNotification(response.message || 'Error al agregar al carrito', 'error');
+                }
+            })
+            .catch(error => {
+                showNotification(error.message || 'Error al agregar al carrito', 'error');
+            });
     }
 
 
@@ -701,34 +789,8 @@
         overlay.classList.add('invisible');
     }
     
-    // Agregar producto al carrito con optimistic update
-    function addToCart(productId, quantity = 1) {
-        // Obtener badge actual para poder hacer rollback si falla
-        const badge = document.getElementById('cartBadge');
-        const currentCount = parseInt(badge.textContent) || 0;
-        const newCount = currentCount + 1;
-        
-        // Actualización optimista: actualizar UI inmediatamente
-        updateCartBadge(newCount);
-        showNotification('Producto agregado al carrito', 'success');
-        
-        // Luego hacer la petición al servidor
-        apiRequest('{{ url("/api/b2b/cart/add") }}', 'POST', {
-            product_id: productId,
-            quantity: quantity
-        })
-        .then(response => {
-            if (response.success) {
-                // Actualizar con el valor real del servidor (por si acaso)
-                updateCartBadge(response.cart_count);
-            }
-        })
-        .catch(error => {
-            // Rollback: volver al valor anterior si falla
-            updateCartBadge(currentCount);
-            showNotification(error.message || 'Error al agregar producto', 'error');
-        });
-    }
+    // Función addToCart eliminada - usar la versión con soporte de lotes (línea 631)
+    
     
     // Renderizar carrito
     
@@ -946,6 +1008,163 @@
 
     // Cargar carrito al iniciar
     loadCart();
+    let currentLotsPage = 1;
+    const lotsPerPage = 5;
+    let allProductLots = [];
+        // Función para formatear fechas
+    function formatDate(dateString) {
+        if (!dateString) return '-';
+        const date = new Date(dateString);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
+    }
+
+    // Función para renderizar lotes con paginación
+    function renderProductLots(lots, page = 1) {
+        const tbody = document.getElementById('lotsTableBody');
+        const pageInfo = document.getElementById('lotsPageInfo');
+        const prevBtn = document.getElementById('prevLotsPage');
+        const nextBtn = document.getElementById('nextLotsPage');
+        
+        if (!tbody || !pageInfo || !prevBtn || !nextBtn) return;
+        
+        // Si no hay lotes
+        if (!lots || lots.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 py-4">No hay lotes disponibles para este producto</td></tr>';
+            pageInfo.textContent = 'Página 0 de 0';
+            prevBtn.disabled = true;
+            nextBtn.disabled = true;
+            return;
+        }
+        
+        // Calcular paginación
+        const totalPages = Math.ceil(lots.length / lotsPerPage);
+        const startIndex = (page - 1) * lotsPerPage;
+        const endIndex = startIndex + lotsPerPage;
+        const lotsToShow = lots.slice(startIndex, endIndex);
+        
+        // Renderizar filas
+        let html = '';
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        lotsToShow.forEach(lot => {
+            const expirationDate = new Date(lot.expiration_date);
+            const isExpired = expirationDate < today;
+            const isActive = lot.is_active === true || lot.is_active === 1;
+            
+            // Determinar badge de estado
+            let statusBadge = '';
+            if (!isActive) {
+                statusBadge = '<span class="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded font-medium">Inactivo</span>';
+            } else if (isExpired) {
+                statusBadge = '<span class="text-xs bg-red-100 text-red-700 px-2 py-1 rounded font-medium">Vencido</span>';
+            } else {
+                statusBadge = '<span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-medium">Activo</span>';
+            }
+            
+            // Determinar si se puede seleccionar
+            const canSelect = isActive && !isExpired && lot.quantity > 0;
+            
+            // Color del stock
+            const stockColor = lot.quantity === 0 ? 'text-red-600' : (lot.quantity < 10 ? 'text-amber-600' : 'text-green-600');
+            
+            html += `
+                <tr class="border-b border-purple-100 hover:bg-purple-50">
+                    <td class="px-2 py-2">
+                        <input type="radio" 
+                            name="selectedLot" 
+                            value="${lot.id}" 
+                            data-stock="${lot.quantity}"
+                            data-lot-number="${lot.lot_number}"
+                            ${canSelect ? '' : 'disabled'}
+                            class="lot-radio cursor-pointer">
+                    </td>
+                    <td class="px-2 py-2 font-medium text-gray-900">${lot.lot_number}</td>
+                    <td class="px-2 py-2 text-gray-600">${formatDate(lot.expiration_date)}</td>
+                    <td class="px-2 py-2 text-right font-bold ${stockColor}">${lot.quantity}</td>
+                    <td class="px-2 py-2 text-center">${statusBadge}</td>
+                </tr>
+            `;
+        });
+        
+        tbody.innerHTML = html;
+        
+        // Actualizar paginación
+        pageInfo.textContent = `Página ${page} de ${totalPages}`;
+        prevBtn.disabled = page === 1;
+        nextBtn.disabled = page === totalPages;
+        
+        // Event listeners para paginación
+        prevBtn.onclick = () => {
+            currentLotsPage = page - 1;
+            renderProductLots(lots, currentLotsPage);
+        };
+        
+        nextBtn.onclick = () => {
+            currentLotsPage = page + 1;
+            renderProductLots(lots, currentLotsPage);
+        };
+        
+        // Event listeners para validación de stock al seleccionar lote
+        document.querySelectorAll('.lot-radio').forEach(radio => {
+            radio.addEventListener('change', function() {
+                validateLotStock();
+            });
+        });
+    }
+
+    // Función para validar stock del lote seleccionado
+    function validateLotStock() {
+        const selectedLot = document.querySelector('input[name="selectedLot"]:checked');
+        const quantityInput = document.getElementById('quantityInput');
+        
+        if (!selectedLot || !quantityInput) return;
+        
+        const lotStock = parseInt(selectedLot.dataset.stock);
+        const quantity = parseInt(quantityInput.value) || 0;
+        
+        // Limpiar errores previos
+        hideQuantityError();
+        
+        if (quantity > lotStock) {
+            showQuantityError(`Stock insuficiente. Máximo disponible en este lote: ${lotStock}`);
+            quantityInput.value = lotStock;
+        }
+    }
+
+    // Función para mostrar error de cantidad
+    function showQuantityError(message) {
+        let errorDiv = document.getElementById('quantityError');
+        
+        if (!errorDiv) {
+            errorDiv = document.createElement('div');
+            errorDiv.id = 'quantityError';
+            errorDiv.className = 'text-xs text-red-600 mt-1 font-medium';
+            const quantityInput = document.getElementById('quantityInput');
+            quantityInput.parentElement.appendChild(errorDiv);
+        }
+        
+        errorDiv.textContent = message;
+        errorDiv.classList.remove('hidden');
+    }
+
+    // Función para ocultar error de cantidad
+    function hideQuantityError() {
+        const errorDiv = document.getElementById('quantityError');
+        if (errorDiv) {
+            errorDiv.classList.add('hidden');
+        }
+    }
+
+    // Event listener para validar al cambiar cantidad
+    const quantityInput = document.getElementById('quantityInput');
+    if (quantityInput) {
+        quantityInput.addEventListener('input', validateLotStock);
+    }
+
 
     // (Opcional) Cierra el modal al presionar la tecla Escape
     $(document).on('keydown', function(e) {
@@ -956,5 +1175,125 @@
             closeCart();
         }
     });
+
+    // ============================================
+    // SELECCIÓN DE LOTE DESDE CARRITO
+    // ============================================
+    
+    function openLotSelectionModal(cartItemId, productId, productName) {
+        // Obtener lotes del producto desde la API
+        apiRequest('{{ url("/api/b2b/products") }}', 'GET')
+            .then(response => {
+                const product = response.find(p => p.id === productId);
+                
+                if (!product || !product.lots || product.lots.length === 0) {
+                    Swal.fire({
+                        title: 'Sin lotes disponibles',
+                        text: 'Este producto no tiene lotes disponibles en este momento.',
+                        icon: 'info',
+                        confirmButtonColor: '#0f4db3',
+                    });
+                    return;
+                }
+                
+                // Construir HTML de la tabla de lotes
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                
+                let lotsHTML = '<div class="overflow-y-auto" style="max-height: 400px;">';
+                lotsHTML += '<table class="w-full text-sm">';
+                lotsHTML += '<thead class="bg-purple-100 sticky top-0">';
+                lotsHTML += '<tr>';
+                lotsHTML += '<th class="px-2 py-2 text-left">Sel.</th>';
+                lotsHTML += '<th class="px-2 py-2 text-left">Lote</th>';
+                lotsHTML += '<th class="px-2 py-2 text-left">Vence</th>';
+                lotsHTML += '<th class="px-2 py-2 text-right">Stock</th>';
+                lotsHTML += '<th class="px-2 py-2 text-center">Estado</th>';
+                lotsHTML += '</tr>';
+                lotsHTML += '</thead>';
+                lotsHTML += '<tbody>';
+                
+                product.lots.forEach(lot => {
+                    const expirationDate = new Date(lot.expiration_date);
+                    const isExpired = expirationDate < today;
+                    const isActive = lot.is_active === true || lot.is_active === 1;
+                    const canSelect = isActive && !isExpired && lot.quantity > 0;
+                    
+                    let statusBadge = '';
+                    if (!isActive) {
+                        statusBadge = '<span class="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded font-medium">Inactivo</span>';
+                    } else if (isExpired) {
+                        statusBadge = '<span class="text-xs bg-red-100 text-red-700 px-2 py-1 rounded font-medium">Vencido</span>';
+                    } else {
+                        statusBadge = '<span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-medium">Activo</span>';
+                    }
+                    
+                    const stockColor = lot.quantity === 0 ? 'text-red-600' : (lot.quantity < 10 ? 'text-amber-600' : 'text-green-600');
+                    
+                    lotsHTML += '<tr class="border-b border-purple-100 hover:bg-purple-50">';
+                    lotsHTML += '<td class="px-2 py-2">';
+                    lotsHTML += `<input type="radio" name="cartLotSelection" value="${lot.id}" ${canSelect ? '' : 'disabled'} class="cursor-pointer">`;
+                    lotsHTML += '</td>';
+                    lotsHTML += `<td class="px-2 py-2 font-medium text-gray-900">${lot.lot_number}</td>`;
+                    lotsHTML += `<td class="px-2 py-2 text-gray-600">${formatDate(lot.expiration_date)}</td>`;
+                    lotsHTML += `<td class="px-2 py-2 text-right font-bold ${stockColor}">${lot.quantity}</td>`;
+                    lotsHTML += `<td class="px-2 py-2 text-center">${statusBadge}</td>`;
+                    lotsHTML += '</tr>';
+                });
+                
+                lotsHTML += '</tbody>';
+                lotsHTML += '</table>';
+                lotsHTML += '</div>';
+                
+                // Mostrar SweetAlert con la tabla de lotes
+                Swal.fire({
+                    title: `Seleccionar lote para ${productName}`,
+                    html: lotsHTML,
+                    icon: 'info',
+                    showCancelButton: true,
+                    confirmButtonText: 'Asignar lote',
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#0f4db3',
+                    cancelButtonColor: '#6c757d',
+                    width: '600px',
+                    preConfirm: () => {
+                        const selectedLot = document.querySelector('input[name="cartLotSelection"]:checked');
+                        if (!selectedLot) {
+                            Swal.showValidationMessage('Por favor selecciona un lote');
+                            return false;
+                        }
+                        return selectedLot.value;
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Actualizar item del carrito con el lote seleccionado
+                        apiRequest('{{ url("/api/b2b/cart/assign-lot") }}', 'POST', {
+                            cart_item_id: cartItemId,
+                            lot_id: result.value,
+                        })
+                        .then(response => {
+                            if (response.success) {
+                                showNotification('Lote asignado correctamente', 'success');
+                                loadCart(); // Recargar carrito para mostrar el lote
+                            } else {
+                                showNotification(response.message || 'Error al asignar lote', 'error');
+                            }
+                        })
+                        .catch(error => {
+                            showNotification(error.message || 'Error al asignar lote', 'error');
+                        });
+                    }
+                });
+            })
+            .catch(error => {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'No se pudieron cargar los lotes del producto',
+                    icon: 'error',
+                    confirmButtonColor: '#0f4db3',
+                });
+            });
+    }
+
 </script>
 @endpush

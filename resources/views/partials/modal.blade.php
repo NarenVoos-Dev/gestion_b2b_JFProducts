@@ -129,10 +129,43 @@
                         </svg>
                         Lotes Disponibles
                     </div>
-                    <div id="modalLots" class="space-y-2 overflow-y-auto flex-1">
-                        <!-- Se llenarán dinámicamente -->
-                        <div class="text-center text-gray-500 text-sm py-4">Cargando lotes...</div>
+                    
+                    <!-- Tabla de lotes -->
+                    <div class="flex-1 overflow-hidden flex flex-col">
+                        <div class="overflow-y-auto flex-1">
+                            <table class="w-full text-xs">
+                                <thead class="bg-purple-100 sticky top-0">
+                                    <tr>
+                                        <th class="px-2 py-2 text-left text-purple-900">Sel.</th>
+                                        <th class="px-2 py-2 text-left text-purple-900">Lote</th>
+                                        <th class="px-2 py-2 text-left text-purple-900">Vence</th>
+                                        <th class="px-2 py-2 text-right text-purple-900">Stock</th>
+                                        <th class="px-2 py-2 text-center text-purple-900">Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="lotsTableBody">
+                                    <tr>
+                                        <td colspan="5" class="text-center text-gray-500 py-4">Cargando lotes...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginación -->
+                        <div id="lotsPagination" class="flex justify-between items-center mt-2 pt-2 border-t border-purple-200 flex-shrink-0">
+                            <button id="prevLotsPage" class="px-2 py-1 text-xs bg-purple-200 text-purple-900 rounded hover:bg-purple-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                                ← Anterior
+                            </button>
+                            <span id="lotsPageInfo" class="text-xs text-purple-900 font-medium">Página 1 de 1</span>
+                            <button id="nextLotsPage" class="px-2 py-1 text-xs bg-purple-200 text-purple-900 rounded hover:bg-purple-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                                Siguiente →
+                            </button>
+                        </div>
                     </div>
+                    
+                    <p class="text-xs text-purple-700 mt-2 flex-shrink-0">
+                        💡 Si no seleccionas un lote, el administrador asignará uno al procesar tu pedido
+                    </p>
                 </div>
 
                 <!-- Selector de cantidad -->

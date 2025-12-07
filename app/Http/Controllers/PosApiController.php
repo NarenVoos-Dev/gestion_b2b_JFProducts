@@ -73,8 +73,17 @@ class PosApiController extends Controller
             Log::info('Filtro de búsqueda aplicado', ['search_term' => $searchTerm]);
         }
         
-        // Ejecutar consulta con relaciones
-        $products = $query->with(['unitOfMeasure', 'category', 'laboratory'])->get();
+        // Ejecutar consulta con relaciones (incluyendo lotes para el modal)
+        $products = $query->with([
+            'unitOfMeasure', 
+            'category', 
+            'laboratory',
+            'productLots' => function($query) use ($locationId) {
+                $query->where('location_id', $locationId)
+                      ->where('is_active', true)
+                      ->orderBy('expiration_date', 'asc');
+            }
+        ])->get();
         
         // 3. Calcular stock y aplicar precio con incremento para cada producto
         $products = $products->map(function ($product) use ($locationId, $pricePercentage) {
@@ -111,6 +120,7 @@ class PosApiController extends Controller
             $product->price = round($finalPrice, 2); // Precio con validación
             $product->base_price = $maxCost; // Costo base (para referencia)
             $product->price_regulated = $priceRegulated; // Para referencia
+            $product->lots = $product->productLots; // Alias para el frontend
             
             return $product;
         });

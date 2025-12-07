@@ -122,6 +122,25 @@ function renderCart(cartData) {
                     <div class="flex-1 min-w-0">
                         <h4 class="font-bold text-gray-900 text-sm truncate">${item.name}</h4>
                         <p class="text-xs text-gray-500">${item.laboratory}</p>
+                        
+                        ${ item.lot_number ? `
+                            <div class="flex items-center gap-2 mt-1">
+                                <span class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-medium">
+                                    Lote: ${item.lot_number}
+                                </span>
+                                <span class="text-xs text-gray-500">
+                                    Vence: ${item.expiration_date ? new Date(item.expiration_date).toLocaleDateString('es-CO') : '-'}
+                                </span>
+                            </div>
+                        ` : `
+                            <button 
+                                onclick="openLotSelectionModal(${item.id}, ${item.product_id}, '${item.name.replace(/'/g, "\\'")}')"
+                                class="text-xs text-amber-600 hover:text-amber-800 mt-1 block bg-amber-50 hover:bg-amber-100 px-2 py-1 rounded border border-amber-200 transition-colors cursor-pointer"
+                            >
+                                ⚠️ Sin lote asignado - Clic para asignar
+                            </button>
+                        `}
+                        
                         <div class="flex items-center gap-2 mt-1">
                             <p class="text-lg font-black text-[#0f4db3]">$${parseFloat(item.price).toLocaleString('es-CO')}</p>
                             ${taxBadge}
