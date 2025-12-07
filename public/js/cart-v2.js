@@ -5,7 +5,7 @@
 // Función para abrir/cerrar el carrito
 function toggleCart() {
 
-    console.log('Abrir/Cerrar carrito');
+    //console.log('Abrir/Cerrar carrito');
     const cartPanel = document.getElementById('cartPanel');
     const overlay = document.getElementById('cartOverlay');
     
@@ -69,7 +69,7 @@ function showCartSkeleton() {
 
 // Renderizar el carrito con los datos del servidor
 function renderCart(cartData) {
-    console.log('Rdenriza carrito', cartData)
+    //console.log('Rdenriza carrito', cartData)
     const cartItems = document.getElementById('cartItems');
     const cartFooter = document.getElementById('cartFooter');
     
@@ -94,13 +94,13 @@ function renderCart(cartData) {
     cartFooter.style.display = 'block';
     
     let html = '<div class="space-y-4">';
-    console.log('=== RENDERIZANDO CARRITO ===');
-    console.log('Total items:', cartData.cart.length);
+    //console.log('=== RENDERIZANDO CARRITO ===');
+    //console.log('Total items:', cartData.cart.length);
     cartData.cart.forEach(item => {
-        console.log('Item:', item.name);
-        console.log('  - image_url:', item.image_url);
-        console.log('  - image:', item.image);
-        console.log('  - laboratory:', item.laboratory);
+        //console.log('Item:', item.name);
+        //console.log('  - image_url:', item.image_url);
+        //console.log('  - image:', item.image);
+        //console.log('  - laboratory:', item.laboratory);
         // Calcular IVA del item si aplica
         const itemTax = item.has_tax ? item.tax : 0;
         const taxRate = item.tax_rate || 0;
