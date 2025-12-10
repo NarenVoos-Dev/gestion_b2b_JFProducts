@@ -81,6 +81,10 @@ Route::middleware([
 
         //Pedidos
         Route::post('/pedidos', [PosApiController::class, 'storePedidoB2B'])->name('orders.store');
+        Route::post('/checkout', [\App\Http\Controllers\Api\OrderController::class, 'checkout'])->name('checkout');
+        Route::get('/pedidos/datatable', [\App\Http\Controllers\Api\OrderController::class, 'datatable'])->name('pedidos.datatable');
+        Route::get('/pedidos/summary', [\App\Http\Controllers\Api\OrderController::class, 'summary'])->name('pedidos.summary');
+        Route::get('/pedidos/{id}', [\App\Http\Controllers\Api\OrderController::class, 'show'])->name('pedidos.show');
     });
  
 });

@@ -972,8 +972,20 @@
     
     // Proceder al checkout
     function proceedToCheckout() {
-        // Por ahora solo muestra mensaje
-        showNotification('Funcionalidad de pedido en desarrollo', 'info');
+        // Verificar que hay items en el carrito
+        apiRequest('{{ url("/api/b2b/cart") }}')
+            .then(response => {
+                if (response.success && response.cart.length > 0) {
+                    // Redirigir a checkout
+                    window.location.href = '/pedidos/checkout';
+                } else {
+                    showNotification('Tu carrito está vacío', 'warning');
+                }
+            })
+            .catch(error => {
+                console.error('Error al verificar carrito:', error);
+                showNotification('Error al verificar el carrito', 'error');
+            });
     }
     
     // ========================================

@@ -241,22 +241,6 @@ class ClientController extends Controller
         return view('client.cart', compact('client', 'cart', 'subtotal'));
     }
      /**
-     * Vista de listado de pedidos
-     */
-    public function listPedidos()
-    {
-        $user = auth()->user();
-        
-        if (!$user->client_id) {
-            abort(403, 'Acceso no autorizado');
-        }
-
-        $client = Client::findOrFail($user->client_id);
-
-        return view('client.pedidos', compact('client'));
-    }
-
-     /**
      * Vista de detalle de un pedido específico
      */
     public function showPedido($id)
@@ -275,9 +259,24 @@ class ClientController extends Controller
         return view('client.pedido-detail', compact('sale'));
     }
 
-     // A partir de aquí, se agregarán los nuevos métodos para el carrito y los pedidos.
-    // public function addToCart(Request $request) { ... }
-    // public function viewCart() { ... }
-    // public function storePedido(Request $request) { ... }
-    // public function listPedidos() { ... }
+   
+    /**
+     * Mostrar página de checkout
+     */
+    public function checkout()
+    {
+        return view('client.checkout');
+    }
+    
+    public function listPedidos()
+    {
+        $user = Auth::user();
+        
+        $pedidos = Sale::where('client_id', $user->client_id)
+            ->where('source', 'b2b')
+            ->orderBy('date', 'desc')
+            ->get();
+        
+        return view('client.pedidos', compact('pedidos'));
+    }
 }

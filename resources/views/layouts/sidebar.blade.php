@@ -41,7 +41,7 @@
             <!-- SECCIÓN PEDIDOS -->
             <div class="mb-4">
                 <div class="px-4 pb-2 text-xs font-bold text-gray-400 uppercase tracking-wider">Pedidos</div>
-                <a href="#" class="flex items-center gap-3 px-4 py-2 text-gray-600 transition-all duration-300 text-sm font-medium hover:bg-[#0f4db3]/5 hover:text-[#0f4db3] hover:translate-x-1">
+                <a href="{{ route('pedidos.list') }}" class="flex items-center gap-3 px-4 py-2 text-gray-600 transition-all duration-300 text-sm font-medium hover:bg-[#0f4db3]/5 hover:text-[#0f4db3] hover:translate-x-1">
                     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
                     Historial de Pedidos
                 </a>

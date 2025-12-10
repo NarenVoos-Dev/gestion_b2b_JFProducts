@@ -12,11 +12,18 @@ class SaleItem extends Model
     public $timestamps = false;
     protected $fillable = [
         'sale_id', 
-        'product_id', 
+        'product_id',
+        'product_lot_id',  // NUEVO
+        'lot_number',      // NUEVO
+        'expiration_date', // NUEVO
         'quantity', 
         'price', 
-        'tax_rate' , 
+        'tax_rate', 
         'unit_of_measure_id'  
+    ];
+
+    protected $casts = [
+        'expiration_date' => 'date',  // NUEVO
     ];
 
     
@@ -42,6 +49,14 @@ class SaleItem extends Model
     public function unitOfMeasure(): BelongsTo
     {
         return $this->belongsTo(UnitOfMeasure::class);
+    }
+
+    /**
+     * Un item de venta pertenece a un lote de producto.
+     */
+    public function productLot(): BelongsTo
+    {
+        return $this->belongsTo(ProductLot::class);
     }
 
 }

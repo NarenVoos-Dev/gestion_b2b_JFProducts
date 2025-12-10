@@ -27,6 +27,9 @@ class AppServiceProvider extends ServiceProvider
         
         // Registrar observer para manejar imágenes de productos
         \App\Models\Product::observe(\App\Observers\ProductObserver::class);
+        
+        // Registrar observer para descontar inventario en ventas B2B
+        \App\Models\Sale::observe(\App\Observers\SaleObserver::class);
     }
 
     protected $policies = [
