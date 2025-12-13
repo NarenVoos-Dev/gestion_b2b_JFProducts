@@ -386,6 +386,34 @@ function renderOrderDetail(order) {
     `;
     
     order.items.forEach(item => {
+        // Preparar HTML de lotes
+        let lotesHtml = '';
+        
+        if (item.lots && item.lots.length > 0) {
+            // Sistema nuevo: múltiples lotes
+            lotesHtml = '<div class="space-y-1">';
+            item.lots.forEach(lot => {
+                lotesHtml += `
+                    <div class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded font-medium inline-block mr-1 mb-1">
+                        ${lot.lot_number} (${lot.quantity} unid)
+                        ${lot.expiration_date ? `<span class="text-blue-600">• Vence: ${moment(lot.expiration_date).format('DD/MM/YYYY')}</span>` : ''}
+                    </div>
+                `;
+            });
+            lotesHtml += '</div>';
+        } else if (item.lot_number) {
+            // Sistema antiguo: un solo lote
+            lotesHtml = `
+                <span class="text-sm bg-gray-100 text-gray-800 px-2 py-1 rounded font-medium">
+                    ${item.lot_number}
+                </span>
+                ${item.expiration_date ? `<div class="text-xs text-gray-500 mt-1">Vence: ${moment(item.expiration_date).format('DD/MM/YYYY')}</div>` : ''}
+            `;
+        } else {
+            // Sin lote
+            lotesHtml = '<span class="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">Sin lote</span>';
+        }
+        
         html += `
             <tr>
                 <td class="px-4 py-3">
@@ -393,11 +421,7 @@ function renderOrderDetail(order) {
                     <div class="text-sm text-gray-600">${item.product.laboratory?.name || 'N/A'}</div>
                 </td>
                 <td class="px-4 py-3">
-                    ${item.lot_number ? 
-                        `<span class="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded font-medium">${item.lot_number}</span>
-                         ${item.expiration_date ? `<div class="text-xs text-gray-500 mt-1">Vence: ${moment(item.expiration_date).format('DD/MM/YYYY')}</div>` : ''}` : 
-                        `<span class="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">Sin lote</span>`
-                    }
+                    ${lotesHtml}
                 </td>
                 <td class="px-4 py-3 text-right font-semibold">${item.quantity}</td>
                 <td class="px-4 py-3 text-right">$${parseFloat(item.price).toLocaleString('es-CO', {minimumFractionDigits: 0})}</td>

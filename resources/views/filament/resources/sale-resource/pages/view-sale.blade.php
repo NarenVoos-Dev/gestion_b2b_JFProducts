@@ -23,6 +23,7 @@
                         <th class="px-4 py-2 font-medium text-gray-900 dark:text-white">Producto</th>
                         <th class="px-4 py-2 font-medium text-gray-900 dark:text-white">Cantidad</th>
                         <th class="px-4 py-2 font-medium text-gray-900 dark:text-white">Unidad</th>
+                        <th class="px-4 py-2 font-medium text-gray-900 dark:text-white">Lotes Asignados</th>
                         <th class="px-4 py-2 font-medium text-gray-900 dark:text-white">Precio Unitario</th>
                         <th class="px-4 py-2 font-medium text-gray-900 dark:text-white">Total Item</th>
                     </tr>
@@ -33,6 +34,32 @@
                             <td class="px-4 py-2 text-gray-700 dark:text-gray-200">{{ $item->product->name }}</td>
                             <td class="px-4 py-2 text-gray-700 dark:text-gray-200">{{ $item->quantity }}</td>
                             <td class="px-4 py-2 text-gray-700 dark:text-gray-200">{{ $item->unitOfMeasure->name }}</td>
+                            <td class="px-4 py-2 text-gray-700 dark:text-gray-200">
+                                @if($item->lots->count() > 0)
+                                    {{-- Sistema nuevo: múltiples lotes --}}
+                                    <div class="space-y-1">
+                                        @foreach($item->lots as $saleItemLot)
+                                            <div class="text-xs bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
+                                                <span class="font-semibold">{{ $saleItemLot->lot_number }}</span>
+                                                <span class="text-gray-600 dark:text-gray-400">({{ $saleItemLot->quantity }} unid)</span>
+                                                @if($saleItemLot->expiration_date)
+                                                    <span class="text-gray-500 dark:text-gray-500">• Vence: {{ \Carbon\Carbon::parse($saleItemLot->expiration_date)->format('d/m/Y') }}</span>
+                                                @endif
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @elseif($item->product_lot_id)
+                                    {{-- Sistema antiguo: un solo lote --}}
+                                    <div class="text-xs bg-gray-50 dark:bg-gray-800 px-2 py-1 rounded">
+                                        <span class="font-semibold">{{ $item->lot_number }}</span>
+                                        @if($item->expiration_date)
+                                            <span class="text-gray-500 dark:text-gray-500">• Vence: {{ \Carbon\Carbon::parse($item->expiration_date)->format('d/m/Y') }}</span>
+                                        @endif
+                                    </div>
+                                @else
+                                    <span class="text-xs text-gray-400 dark:text-gray-600">Sin lote asignado</span>
+                                @endif
+                            </td>
                             <td class="px-4 py-2 text-gray-700 dark:text-gray-200">${{ number_format($item->price, 2) }}</td>
                             <td class="px-4 py-2 text-gray-700 dark:text-gray-200">${{ number_format($item->price * $item->quantity, 2) }}</td>
                         </tr>

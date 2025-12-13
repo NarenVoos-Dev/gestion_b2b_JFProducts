@@ -8,7 +8,7 @@ use Carbon\Carbon;
 
 class SalesChart extends ChartWidget
 {
-    protected static ?string $heading = 'Ventas de los Últimos 7 Días';
+    protected static ?string $heading = 'Pedidos de los Últimos 7 Días';
     protected static ?int $sort = 2;
 
     protected function getData(): array

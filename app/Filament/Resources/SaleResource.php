@@ -30,8 +30,8 @@ class SaleResource extends Resource
     protected static ?string $navigationGroup = 'Operaciones';
     protected static ?int $navigationSort = 11;
 
-    protected static ?string $modelLabel = 'Venta';
-    protected static ?string $pluralModelLabel = 'Ventas';
+    protected static ?string $modelLabel = 'Pedido de Venta';
+    protected static ?string $pluralModelLabel = 'Pedidos de Venta';
 
     public static function form(Form $form): Form
     {
@@ -132,55 +132,84 @@ class SaleResource extends Resource
         return $table
         ->columns([
             Tables\Columns\TextColumn::make('id')
-            ->label('N° Venta')
-            ->sortable(),
+                ->label('N° Pedido')
+                ->formatStateUsing(fn ($state) => '#' . str_pad($state, 6, '0', STR_PAD_LEFT))
+                ->sortable()
+                ->searchable(),
             Tables\Columns\TextColumn::make('client.name')
-            ->label('Cliente')
-            ->searchable(),
+                ->label('Cliente')
+                ->searchable()
+                ->sortable(),
+            Tables\Columns\BadgeColumn::make('source')
+                ->label('Origen')
+                ->colors([
+                    'info' => 'b2b',
+                    'secondary' => 'pos',
+                ])
+                ->formatStateUsing(fn ($state) => strtoupper($state)),
             Tables\Columns\TextColumn::make('location.name')
-            ->label('Bodega/Sucursal')
-            ->searchable(),
+                ->label('Bodega/Sucursal')
+                ->searchable()
+                ->toggleable(isToggledHiddenByDefault: true),
             Tables\Columns\TextColumn::make('subtotal')
-            ->money('cop')->sortable(),
+                ->money('cop')
+                ->sortable(),
             Tables\Columns\TextColumn::make('tax')
-            ->label('Iva')
-            ->money('cop')->sortable(),   
+                ->label('IVA')
+                ->money('cop')
+                ->sortable(),   
             Tables\Columns\TextColumn::make('total')
-            ->money('cop')->sortable(), 
+                ->money('cop')
+                ->sortable()
+                ->weight('bold'), 
             Tables\Columns\TextColumn::make('date')
-            ->date('d/m/Y')
-            ->label('Fecha'),
-            Tables\Columns\IconColumn::make('is_cash')
-                ->label('Condición')
-                ->boolean()
-                ->trueIcon('heroicon-o-check-circle')
-                ->trueColor('success')
-                ->falseIcon('heroicon-o-clock')
-                ->falseColor('warning')
-                ->getStateUsing(fn (Sale $record): bool => $record->is_cash)
-                ->tooltip(fn (Sale $record): string => $record->is_cash ? 'Contado' : 'Crédito'),
-            Tables\Columns\TextColumn::make('status')
+                ->dateTime('d/m/Y H:i')
+                ->label('Fecha')
+                ->sortable(),
+            Tables\Columns\BadgeColumn::make('status')
                 ->label('Estado')
-                ->badge()
-                ->color(fn (string $state): string => match ($state) {
-                    'Pagada' => 'success',
-                    'Pendiente' => 'warning',
-                    'Vencida' => 'danger',
-                    default => 'gray',
-                }),
+                ->colors(fn (Sale $record): array => 
+                    $record->source === 'b2b' ? [
+                        'warning' => 'Pendiente',
+                        'primary' => 'Separación',
+                        'success' => 'Facturado',
+                        'secondary' => 'Finalizado',
+                        'danger' => 'Cancelado',
+                    ] : [
+                        'success' => 'Pagada',
+                        'warning' => 'Pendiente',
+                        'danger' => 'Vencida',
+                    ]
+                ),
             ])
             ->defaultSort('id', 'desc')
             ->filters([
-                // <<< AÑADIMOS LOS FILTROS AQUÍ >>>
+                // Filtro por origen (B2B/POS)
+                SelectFilter::make('source')
+                    ->label('Origen')
+                    ->options([
+                        'b2b' => 'B2B',
+                        'pos' => 'POS',
+                    ]),
+                    
+                // Filtro por estado
+                SelectFilter::make('status')
+                    ->label('Estado')
+                    ->options([
+                        // Estados B2B
+                        'Pendiente' => 'Pendiente',
+                        'Separación' => 'Separación',
+                        'Facturado' => 'Facturado',
+                        'Finalizado' => 'Finalizado',
+                        'Cancelado' => 'Cancelado',
+                        // Estados POS
+                        'Pagada' => 'Pagada',
+                        'Vencida' => 'Vencida',
+                    ]),
+                    
                 SelectFilter::make('client_id')
                     ->label('Cliente')
                     ->relationship('client', 'name')
-                    ->searchable()
-                    ->preload(),
-
-                SelectFilter::make('zone')
-                    ->label('Zona')
-                    ->relationship('client.zone', 'name')
                     ->searchable()
                     ->preload(),
 
@@ -204,19 +233,445 @@ class SaleResource extends Resource
             ->actions([
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\ViewAction::make(),
-                    Tables\Actions\EditAction::make(),
-                    Tables\Actions\Action::make('printReceipt')
-                        ->label('Imprimir Tirilla')
-                        ->icon('heroicon-o-printer')
-                        ->url(fn (Sale $record): string => route('sales.receipt.print', $record))
-                        ->openUrlInNewTab(),
-                    Tables\Actions\Action::make('downloadInvoice')
-                        ->label('Descargar Factura PDF')
+                    Tables\Actions\EditAction::make()
+                        ->visible(fn (Sale $record) => 
+                            $record->source === 'pos' || 
+                            in_array($record->status, ['Pendiente', 'Separación'])
+                        ),
+                    Tables\Actions\Action::make('assignLots')
+                        ->label('Asignar Lotes')
+                        ->icon('heroicon-o-cube')
+                        ->color('warning')
+                        ->modalHeading('Asignar Lotes a Items del Pedido')
+                        ->modalDescription('Puedes asignar uno o múltiples lotes por item')
+                        ->modalWidth('4xl')
+                        ->form(function (Sale $record) {
+                            // Obtener items sin lotes asignados (ni en product_lot_id ni en sale_item_lots)
+                            $itemsWithoutLot = $record->items()
+                                ->whereNull('product_lot_id')
+                                ->whereDoesntHave('lots')
+                                ->get();
+                            
+                            if ($itemsWithoutLot->isEmpty()) {
+                                return [
+                                    Forms\Components\Placeholder::make('no_items')
+                                        ->content('✅ Todos los items ya tienen lote asignado')
+                                ];
+                            }
+                            
+                            $sections = [];
+                            foreach ($itemsWithoutLot as $item) {
+                                $sections[] = Forms\Components\Section::make("Item: {$item->product->name}")
+                                    ->description("Cantidad total requerida: {$item->quantity}")
+                                    ->schema([
+                                        Forms\Components\Repeater::make("lots_{$item->id}")
+                                            ->label('Lotes')
+                                            ->schema([
+                                                Forms\Components\Select::make('lot_id')
+                                                    ->label('Lote')
+                                                    ->options(
+                                                        \App\Models\ProductLot::where('product_id', $item->product_id)
+                                                            ->where('is_active', true)
+                                                            ->where('quantity', '>', 0)
+                                                            ->orderBy('expiration_date')
+                                                            ->get()
+                                                            ->mapWithKeys(function ($lot) {
+                                                                return [
+                                                                    $lot->id => sprintf(
+                                                                        '%s (Disp: %d, Vence: %s)',
+                                                                        $lot->lot_number,
+                                                                        $lot->quantity,
+                                                                        $lot->expiration_date->format('d/m/Y')
+                                                                    )
+                                                                ];
+                                                            })
+                                                    )
+                                                    ->required()
+                                                    ->searchable()
+                                                    ->disableOptionWhen(function ($value, $state, Forms\Get $get) {
+                                                        // Obtener todos los lotes seleccionados en este repeater
+                                                        $allLots = $get('../../lots_' . $get('../../../id')) ?? [];
+                                                        
+                                                        // Extraer los lot_id ya seleccionados (excepto el actual)
+                                                        $selectedLots = collect($allLots)
+                                                            ->pluck('lot_id')
+                                                            ->filter(fn($id) => $id !== null && $id !== $state)
+                                                            ->all();
+                                                        
+                                                        // Deshabilitar si el lote ya está seleccionado
+                                                        return in_array($value, $selectedLots);
+                                                    }),
+                                                Forms\Components\TextInput::make('quantity')
+                                                    ->label('Cantidad')
+                                                    ->numeric()
+                                                    ->required()
+                                                    ->minValue(0.01)
+                                                    ->live()
+                                                    ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+                                                        // Validar que no exceda la cantidad del lote
+                                                        $lotId = $get('lot_id');
+                                                        if ($lotId) {
+                                                            $lot = \App\Models\ProductLot::find($lotId);
+                                                            if ($lot && $state > $lot->quantity) {
+                                                                $set('quantity', $lot->quantity);
+                                                            }
+                                                        }
+                                                    }),
+                                            ])
+                                            ->columns(2)
+                                            ->addActionLabel('+ Agregar otro lote')
+                                            ->reorderable(false)
+                                            ->collapsible()
+                                            ->defaultItems(1),
+                                        Forms\Components\Placeholder::make("total_assigned_{$item->id}")
+                                            ->label('Total Asignado')
+                                            ->content(function (Forms\Get $get) use ($item) {
+                                                $lots = $get("lots_{$item->id}") ?? [];
+                                                // Convertir a float y filtrar valores vacíos
+                                                $total = collect($lots)
+                                                    ->pluck('quantity')
+                                                    ->filter(fn($q) => $q !== null && $q !== '')
+                                                    ->map(fn($q) => (float)$q)
+                                                    ->sum();
+                                                $required = (float)$item->quantity;
+                                                $remaining = $required - $total;
+                                                
+                                                $color = $total == $required ? 'green' : ($total > $required ? 'red' : 'orange');
+                                                $icon = $total == $required ? '✅' : ($total > $required ? '❌' : '⚠️');
+                                                
+                                                return new \Illuminate\Support\HtmlString(
+                                                    "<div style='font-size: 1.1em; font-weight: bold; color: {$color};'>" .
+                                                    "{$icon} {$total} / {$required} unidades" .
+                                                    ($remaining != 0 ? " (Faltan: {$remaining})" : " (Completo)") .
+                                                    "</div>"
+                                                );
+                                            }),
+                                    ])
+                                    ->collapsible();
+                            }
+                            
+                            return $sections;
+                        })
+                        ->action(function (Sale $record, array $data) {
+                            $itemsWithoutLot = $record->items()
+                                ->whereNull('product_lot_id')
+                                ->whereDoesntHave('lots')
+                                ->get();
+                            
+                            $errors = [];
+                            
+                            // Validar todas las asignaciones
+                            foreach ($itemsWithoutLot as $item) {
+                                $lotsKey = "lots_{$item->id}";
+                                $lots = $data[$lotsKey] ?? [];
+                                
+                                if (empty($lots)) {
+                                    $errors[] = "{$item->product->name}: No se asignaron lotes";
+                                    continue;
+                                }
+                                
+                                // Validar que no haya lotes duplicados
+                                $lotIds = collect($lots)->pluck('lot_id')->filter();
+                                if ($lotIds->count() !== $lotIds->unique()->count()) {
+                                    $errors[] = "{$item->product->name}: No puedes seleccionar el mismo lote más de una vez";
+                                }
+                                
+                                // Validar que la suma de cantidades = cantidad del item
+                                $totalAssigned = collect($lots)
+                                    ->pluck('quantity')
+                                    ->filter(fn($q) => $q !== null && $q !== '')
+                                    ->map(fn($q) => (float)$q)
+                                    ->sum();
+                                if ($totalAssigned != $item->quantity) {
+                                    $errors[] = "{$item->product->name}: Total asignado ({$totalAssigned}) no coincide con cantidad requerida ({$item->quantity})";
+                                }
+                                
+                                // Validar que cada lote tenga suficiente stock
+                                foreach ($lots as $lotData) {
+                                    $lot = \App\Models\ProductLot::find($lotData['lot_id']);
+                                    if ($lot && $lotData['quantity'] > $lot->quantity) {
+                                        $errors[] = "{$item->product->name}: Cantidad ({$lotData['quantity']}) excede stock del lote {$lot->lot_number} ({$lot->quantity})";
+                                    }
+                                }
+                            }
+                            
+                            // Si hay errores, mostrarlos y detener
+                            if (!empty($errors)) {
+                                \Filament\Notifications\Notification::make()
+                                    ->danger()
+                                    ->title('Errores de Validación')
+                                    ->body(implode("\n", $errors))
+                                    ->persistent()
+                                    ->send();
+                                return;
+                            }
+                            
+                            // Si todo está bien, crear los registros en sale_item_lots
+                            foreach ($itemsWithoutLot as $item) {
+                                $lotsKey = "lots_{$item->id}";
+                                $lots = $data[$lotsKey] ?? [];
+                                
+                                foreach ($lots as $lotData) {
+                                    $lot = \App\Models\ProductLot::find($lotData['lot_id']);
+                                    
+                                    \App\Models\SaleItemLot::create([
+                                        'sale_item_id' => $item->id,
+                                        'product_lot_id' => $lotData['lot_id'],
+                                        'quantity' => $lotData['quantity'],
+                                        'lot_number' => $lot->lot_number,
+                                        'expiration_date' => $lot->expiration_date,
+                                    ]);
+                                }
+                            }
+                            
+                            \Filament\Notifications\Notification::make()
+                                ->success()
+                                ->title('Lotes Asignados')
+                                ->body('Los lotes han sido asignados exitosamente')
+                                ->send();
+                        })
+                        ->visible(fn (Sale $record) => 
+                            $record->source === 'b2b' && 
+                            in_array($record->status, ['Pendiente', 'Separación']) &&
+                            $record->items()->whereNull('product_lot_id')->whereDoesntHave('lots')->count() > 0
+                        ),
+                    Tables\Actions\Action::make('changeStatus')
+                        ->label('Cambiar Estado')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('primary')
+                        ->form([
+                            Forms\Components\Select::make('status')
+                                ->label('Nuevo Estado')
+                                ->options(fn (Sale $record) => match($record->status) {
+                                    'Pendiente' => [
+                                        'Separación' => 'Separación',
+                                        'Facturado' => 'Facturado',
+                                    ],
+                                    'Separación' => [
+                                        'Facturado' => 'Facturado',
+                                    ],
+                                    'Facturado' => [
+                                        'Finalizado' => 'Finalizado',
+                                    ],
+                                    default => [],
+                                })
+                                ->required()
+                                ->live()
+                                ->helperText(fn (Sale $record) => 
+                                    $record->status === 'Separación' 
+                                        ? " Al cambiar a 'Facturado' se creará la cuenta por cobrar y se descontará el inventario"
+                                        : null
+                                ),
+                            Forms\Components\TextInput::make('invoice_number')
+                                ->label('Número de Factura')
+                                ->required()
+                                ->maxLength(50)
+                                ->helperText('Ingresa el número de factura')
+                                ->visible(fn (Forms\Get $get) => $get('status') === 'Facturado'),
+                        ])
+                        ->action(function (Sale $record, array $data) {
+                            // Validar lotes si se va a cambiar a Facturado
+                            if ($data['status'] === 'Facturado') {
+                                // Cargar la relación lots para verificar correctamente
+                                $record->load('items.lots');
+                                
+                                // Contar items sin lotes asignados en sale_item_lots
+                                $itemsWithoutLot = 0;
+                                foreach ($record->items as $item) {
+                                    \Log::info("Validando item #{$item->id}", [
+                                        'lots_count' => $item->lots->count(),
+                                        'lots' => $item->lots->pluck('lot_number')->toArray()
+                                    ]);
+                                    
+                                    // Verificar SOLO si tiene lotes en sale_item_lots
+                                    if ($item->lots->count() === 0) {
+                                        $itemsWithoutLot++;
+                                        \Log::warning("Item #{$item->id} sin lote asignado en sale_item_lots");
+                                    }
+                                }
+                                    
+                                if ($itemsWithoutLot > 0) {
+                                    \Filament\Notifications\Notification::make()
+                                        ->danger()
+                                        ->title('Error: Items sin Lote')
+                                        ->body("No se puede facturar: {$itemsWithoutLot} items sin lote asignado. Usa la acción 'Asignar Lotes' primero.")
+                                        ->persistent()
+                                        ->send();
+                                    return;
+                                }
+                                
+                                // Validar número de factura ANTES de cambiar estado
+                                if ($data['status'] === 'Facturado' && !empty($data['invoice_number'])) {
+                                    // Verificar si el número de factura ya existe
+                                    $existingInvoice = \App\Models\AccountReceivable::where('invoice_number', $data['invoice_number'])->first();
+                                    
+                                    if ($existingInvoice) {
+                                        \Filament\Notifications\Notification::make()
+                                            ->danger()
+                                            ->title('Error: Número de Factura Duplicado')
+                                            ->body("El número de factura '{$data['invoice_number']}' ya existe en el sistema.\n\nCada factura debe tener un número único. Por favor:\n1. Verifica el número de factura en tu sistema externo\n2. Ingresa un número de factura diferente")
+                                            ->persistent()
+                                            ->send();
+                                        return;
+                                    }
+                                }
+                                
+                                // Guardar el número de factura en la sesión para que el Observer lo use
+                                if (!empty($data['invoice_number'])) {
+                                    session(['pending_invoice_number_' . $record->id => $data['invoice_number']]);
+                                }
+                            }
+                            
+                            try {
+                                $record->status = $data['status'];
+                                $record->save();
+                                
+                                \Filament\Notifications\Notification::make()
+                                    ->success()
+                                    ->title('Estado Actualizado')
+                                    ->body("El pedido ahora está en estado: {$data['status']}")
+                                    ->send();
+                            } catch (\Exception $e) {
+                                // Revertir el estado si hubo error
+                                $record->refresh();
+                                
+                                $message = $e->getMessage();
+                                
+                                if (str_contains($message, 'ya fue facturado')) {
+                                    $message = "Este pedido ya fue facturado anteriormente.\n\nVerifica en 'Cuentas por Cobrar' si ya existe una cuenta para este pedido.";
+                                }
+                                
+                                \Filament\Notifications\Notification::make()
+                                    ->danger()
+                                    ->title('Error al Cambiar Estado')
+                                    ->body($message)
+                                    ->persistent()
+                                    ->send();
+                            }
+                        })
+                        ->visible(fn (Sale $record) => 
+                            $record->source === 'b2b' && 
+                            !in_array($record->status, ['Finalizado', 'Cancelado'])
+                        ),
+                    Tables\Actions\Action::make('cancelInvoice')
+                        ->label('Cancelar Factura')
+                        ->icon('heroicon-o-receipt-refund')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->modalHeading('Cancelar Factura')
+                        ->modalDescription('Esta acción devolverá el inventario y cancelará la cuenta por cobrar.')
+                        ->form([
+                            Forms\Components\Textarea::make('cancellation_reason')
+                                ->label('Motivo de Cancelación')
+                                ->required()
+                                ->rows(3)
+                                ->placeholder('Ej: Cliente rechazó el pedido, Error en facturación, etc.')
+                        ])
+                        ->action(function (Sale $record, array $data) {
+                            try {
+                                // Cargar relaciones necesarias
+                                $record->load(['items.lots', 'accountReceivable']);
+                                
+                                // 1. Devolver inventario
+                                foreach ($record->items as $item) {
+                                    if ($item->lots->count() > 0) {
+                                        foreach ($item->lots as $saleItemLot) {
+                                            $lot = \App\Models\ProductLot::find($saleItemLot->product_lot_id);
+                                            
+                                            if ($lot) {
+                                                // Devolver cantidad
+                                                $lot->increment('quantity', $saleItemLot->quantity);
+                                                
+                                                // Reactivar lote si estaba inactivo
+                                                if (!$lot->is_active) {
+                                                    $lot->update(['is_active' => true]);
+                                                }
+                                                
+                                                // Registrar movimiento de entrada
+                                                \App\Models\StockMovement::create([
+                                                    'product_id' => $item->product_id,
+                                                    'product_lot_id' => $lot->id,
+                                                    'location_id' => $record->location_id,
+                                                    'type' => 'entrada',
+                                                    'quantity' => $saleItemLot->quantity,
+                                                    'reference_type' => 'App\Models\Sale',
+                                                    'reference_id' => $record->id,
+                                                    'notes' => "Devolución por cancelación de factura #{$record->id}",
+                                                ]);
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                // 2. Marcar cuenta por cobrar como cancelada
+                                if ($record->accountReceivable) {
+                                    $record->accountReceivable->update([
+                                        'status' => 'cancelled',
+                                        'cancellation_reason' => $data['cancellation_reason'],
+                                        'cancelled_at' => now(),
+                                    ]);
+                                }
+                                
+                                // 3. Cambiar estado del pedido a Cancelado
+                                $record->update(['status' => 'Cancelado']);
+                                
+                                \Filament\Notifications\Notification::make()
+                                    ->success()
+                                    ->title('Factura Cancelada')
+                                    ->body('El inventario ha sido devuelto y la cuenta por cobrar ha sido cancelada.')
+                                    ->send();
+                                    
+                            } catch (\Exception $e) {
+                                \Filament\Notifications\Notification::make()
+                                    ->danger()
+                                    ->title('Error al Cancelar Factura')
+                                    ->body($e->getMessage())
+                                    ->persistent()
+                                    ->send();
+                            }
+                        })
+                        ->visible(fn (Sale $record) => 
+                            $record->source === 'b2b' && 
+                            $record->status === 'Facturado'
+                        ),
+                    Tables\Actions\Action::make('cancel')
+                        ->label('Cancelar Pedido')
+                        ->icon('heroicon-o-x-circle')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->modalHeading('Cancelar Pedido')
+                        ->modalDescription('¿Estás seguro de cancelar este pedido? Esta acción no se puede deshacer.')
+                        ->modalSubmitActionLabel('Sí, cancelar')
+                        ->action(function (Sale $record) {
+                            if (in_array($record->status, ['Facturado', 'Finalizado'])) {
+                                \Filament\Notifications\Notification::make()
+                                    ->danger()
+                                    ->title('Error')
+                                    ->body('No se puede cancelar un pedido facturado o finalizado')
+                                    ->send();
+                                return;
+                            }
+                            
+                            $record->status = 'Cancelado';
+                            $record->save();
+                            
+                            \Filament\Notifications\Notification::make()
+                                ->success()
+                                ->title('Pedido Cancelado')
+                                ->body('El pedido ha sido cancelado exitosamente')
+                                ->send();
+                        })
+                        ->visible(fn (Sale $record) => 
+                            $record->source === 'b2b' && 
+                            in_array($record->status, ['Pendiente', 'Separación'])
+                        ),
+                    Tables\Actions\Action::make('downloadPdf')
+                        ->label('Descargar Pedido PDF')
                         ->icon('heroicon-o-document-arrow-down')
                         ->action(function (Sale $record) {
                             $sale = $record->load(['client', 'business', 'items.product.unitOfMeasure', 'items.unitOfMeasure']);
                             $pdf = Pdf::loadView('pdf.invoice', ['sale' => $sale]);
-                            return response()->streamDownload(fn() => print($pdf->output()), "factura-{$sale->id}.pdf");
+                            return response()->streamDownload(fn() => print($pdf->output()), "pedido-{$sale->id}.pdf");
                         }),
                 ]),
             ]);
@@ -231,6 +686,7 @@ class SaleResource extends Resource
             'view' => Pages\ViewSale::route('/{record}'),
         ];
     }
+
     
     public static function getEloquentQuery(): Builder
     {

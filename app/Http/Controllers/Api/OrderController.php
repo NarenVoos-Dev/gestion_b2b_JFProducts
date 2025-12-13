@@ -90,19 +90,34 @@ class OrderController extends Controller
             
             Log::info('Venta creada', ['sale_id' => $sale->id]);
             
-            // 6. Crear items del pedido
+            // 6. Crear items del pedido y sus lotes
             foreach ($cartItems as $cartItem) {
-                SaleItem::create([
+                // Crear el item SIN asignar lote directamente
+                $saleItem = SaleItem::create([
                     'sale_id' => $sale->id,
                     'product_id' => $cartItem->product_id,
-                    'product_lot_id' => $cartItem->product_lot_id, // Puede ser NULL
-                    'lot_number' => $cartItem->lot_number,
-                    'expiration_date' => $cartItem->expiration_date,
                     'quantity' => $cartItem->quantity,
                     'price' => $cartItem->price,
                     'tax_rate' => $cartItem->product->tax_rate ?? 0,
                     'unit_of_measure_id' => $cartItem->product->unit_of_measure_id,
                 ]);
+                
+                // Si el carrito tiene un lote asignado, crear en sale_item_lots
+                if ($cartItem->product_lot_id) {
+                    \App\Models\SaleItemLot::create([
+                        'sale_item_id' => $saleItem->id,
+                        'product_lot_id' => $cartItem->product_lot_id,
+                        'quantity' => $cartItem->quantity,
+                        'lot_number' => $cartItem->lot_number,
+                        'expiration_date' => $cartItem->expiration_date,
+                    ]);
+                    
+                    Log::info("Lote asignado desde carrito", [
+                        'sale_item_id' => $saleItem->id,
+                        'lot_number' => $cartItem->lot_number,
+                        'quantity' => $cartItem->quantity
+                    ]);
+                }
             }
             
             Log::info('Items del pedido creados', ['item_count' => $itemCount]);
@@ -243,7 +258,7 @@ class OrderController extends Controller
         $sale = Sale::where('id', $id)
             ->where('client_id', $user->client_id)
             ->where('source', 'b2b')
-            ->with(['items.product.laboratory', 'items.productLot'])
+            ->with(['items.product.laboratory', 'items.productLot', 'items.lots'])
             ->firstOrFail();
         
         return response()->json($sale);

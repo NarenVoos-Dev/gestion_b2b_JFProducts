@@ -58,4 +58,12 @@ class Sale extends Model
         return $this->hasOne(ElectronicDocument::class);
     }
 
+    /**
+     * Una venta B2B tiene una cuenta por cobrar asociada.
+     */
+    public function accountReceivable()
+    {
+        return $this->hasOne(AccountReceivable::class);
+    }
+
 }

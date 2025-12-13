@@ -59,4 +59,43 @@ class SaleItem extends Model
         return $this->belongsTo(ProductLot::class);
     }
 
+    /**
+     * Un item de venta puede tener múltiples lotes asignados.
+     */
+    public function lots()
+    {
+        return $this->hasMany(SaleItemLot::class);
+    }
+
+    /**
+     * Verificar si el item tiene todos los lotes asignados.
+     */
+    public function hasAllLotsAssigned(): bool
+    {
+        // Si usa el sistema antiguo (product_lot_id directo)
+        if ($this->product_lot_id) {
+            return true;
+        }
+        
+        // Si usa el sistema nuevo (tabla intermedia)
+        $totalAssigned = $this->lots()->sum('quantity');
+        return $totalAssigned >= $this->quantity;
+    }
+
+    /**
+     * Obtener la cantidad total asignada desde los lotes.
+     */
+    public function getTotalQuantityFromLots(): float
+    {
+        return (float) $this->lots()->sum('quantity');
+    }
+
+    /**
+     * Obtener la cantidad pendiente de asignar.
+     */
+    public function getRemainingQuantity(): float
+    {
+        return $this->quantity - $this->getTotalQuantityFromLots();
+    }
+
 }

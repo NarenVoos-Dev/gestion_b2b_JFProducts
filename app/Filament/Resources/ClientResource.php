@@ -123,7 +123,49 @@ class ClientResource extends Resource
                                     ->relationship('priceList', 'name')
                                     ->searchable()
                                     ->preload()
-                                    ->placeholder('Usar precio estándar (sin lista)'),
+                                    ->placeholder('Usar precio estándar (sin lista)')
+                                    ->createOptionForm([
+                                        Forms\Components\TextInput::make('name')
+                                            ->label('Nombre de la Lista')
+                                            ->required()
+                                            ->maxLength(255)
+                                            ->placeholder('Ej: Precio Mayorista, Precio Cliente VIP')
+                                            ->columnSpanFull(),
+                                        Forms\Components\Select::make('type')
+                                            ->label('Tipo de Ajuste')
+                                            ->options([
+                                                'markup' => ' Aumento de Precio (Markup)',
+                                                'discount' => ' Descuento',
+                                            ])
+                                            ->required()
+                                            ->native(false)
+                                            ->helperText('Seleccione si aumentará o disminuirá el precio base'),
+                                        Forms\Components\TextInput::make('percentage')
+                                            ->label('Porcentaje de Ajuste')
+                                            ->required()
+                                            ->numeric()
+                                            ->minValue(0)
+                                            ->maxValue(100)
+                                            ->suffix('%')
+                                            ->placeholder('Ej: 10')
+                                            ->helperText('Ingrese el porcentaje entre 0 y 100'),
+                                    ])
+                                    ->createOptionUsing(function (array $data): int {
+                                        $priceList = \App\Models\PriceList::create([
+                                            'business_id' => auth()->user()->business_id,
+                                            'name' => $data['name'],
+                                            'type' => $data['type'],
+                                            'percentage' => $data['percentage'],
+                                        ]);
+                                        
+                                        \Filament\Notifications\Notification::make()
+                                            ->success()
+                                            ->title('Lista de Precios Creada')
+                                            ->body("La lista '{$data['name']}' ha sido creada exitosamente")
+                                            ->send();
+                                        
+                                        return $priceList->id;
+                                    }),
                             ])->columns(2),
 
                         Forms\Components\Tabs\Tab::make('Acceso B2B')

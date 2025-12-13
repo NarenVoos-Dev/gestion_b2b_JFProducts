@@ -3,7 +3,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Factura de Venta #{{ $sale->id }}</title>
+    <title>Pedido de Venta #{{ $sale->id }}</title>
     <style>
         body { font-family: 'Helvetica', sans-serif; font-size: 12px; }
         .container { width: 100%; margin: 0 auto; }
@@ -32,17 +32,17 @@
                 {{-- <p>Dirección, Teléfono, etc. --}}
             </div>
             <div class="invoice-details">
-                <h2>RECIBO DE VENTA</h2>
-                <p><strong>Factura #:</strong> {{ $sale->id }}</p>
-                <p><strong>Fecha:</strong> {{ \Carbon\Carbon::parse($sale->date)->format('d/m/Y') }}</p>
+                <h2>PEDIDO DE VENTA</h2>
+                <p><strong>Pedido #:</strong> {{ str_pad($sale->id, 6, '0', STR_PAD_LEFT) }}</p>
+                <p><strong>Fecha:</strong> {{ \Carbon\Carbon::parse($sale->date)->format('d/m/Y H:i') }}</p>
             </div>
         </div>
     </div>
     
     <div class="content">
         <div class="client-details">
-            <h3>Facturar a:</h3>
-            <p><strong>Cliente:</strong> {{ $sale->client->name }}</p>
+            <h3>Cliente:</h3>
+            <p><strong>Nombre:</strong> {{ $sale->client->name }}</p>
             <p><strong>Documento:</strong> {{ $sale->client->document }}</p>
             <p><strong>Email:</strong> {{ $sale->client->email }}</p>
         </div>

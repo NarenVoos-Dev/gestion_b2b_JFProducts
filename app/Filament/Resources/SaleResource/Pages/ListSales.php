@@ -21,7 +21,7 @@ class ListSales extends ListRecords
     protected function getHeaderWidgets(): array
     {
         return [
-            SalesStatsOverview::class,
+            // SalesStatsOverview::class, // Temporalmente desactivado por error de null
         ];
     }
 }

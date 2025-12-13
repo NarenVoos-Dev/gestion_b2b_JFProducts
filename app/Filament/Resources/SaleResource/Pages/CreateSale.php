@@ -13,10 +13,209 @@ use App\Models\StockMovement;
 use App\Models\UnitOfMeasure;
 use App\Models\Inventory;
 use Filament\Notifications\Notification;
+use Filament\Forms;
 
 class CreateSale extends CreateRecord
 {
     protected static string $resource = SaleResource::class;
+    
+    // Formulario para crear pedidos B2B
+    public function form(Forms\Form $form): Forms\Form
+    {
+        // Detectar si queremos crear pedido B2B (por defecto sí)
+        $isB2B = request()->get('source') !== 'pos';
+        
+        if ($isB2B) {
+            return $form->schema([
+                Forms\Components\Hidden::make('source')
+                    ->default('b2b'),
+                Forms\Components\Hidden::make('business_id')
+                    ->default(auth()->user()->business_id),
+                Forms\Components\Hidden::make('location_id')
+                    ->default(1), // Bodega Principal B2B
+                    
+                Forms\Components\Grid::make(3)
+                    ->schema([
+                        Forms\Components\Select::make('client_id')
+                            ->label('Cliente')
+                            ->relationship('client', 'name')
+                            ->required()
+                            ->searchable()
+                            ->preload(),
+                        Forms\Components\DateTimePicker::make('date')
+                            ->label('Fecha')
+                            ->default(now())
+                            ->required(),
+                        Forms\Components\Select::make('status')
+                            ->label('Estado')
+                            ->options([
+                                'Pendiente' => 'Pendiente',
+                                'Separación' => 'Separación',
+                            ])
+                            ->default('Pendiente')
+                            ->required(),
+                    ]),
+                    
+                Forms\Components\Textarea::make('notes')
+                    ->label('Notas del Pedido')
+                    ->rows(2)
+                    ->columnSpanFull(),
+                    
+                Forms\Components\Section::make('Items del Pedido')
+                    ->description('Agrega productos y asigna lotes directamente')
+                    ->schema([
+                        Forms\Components\Repeater::make('items')
+                            ->relationship('items')
+                            ->schema([
+                                Forms\Components\Grid::make(4)
+                                    ->schema([
+                                        Forms\Components\Select::make('product_id')
+                                            ->label('Producto')
+                                            ->relationship('product', 'name')
+                                            ->required()
+                                            ->searchable()
+                                            ->preload()
+                                            ->reactive()
+                                            ->afterStateUpdated(function ($state, Forms\Set $set) {
+                                                if ($state) {
+                                                    $product = \App\Models\Product::find($state);
+                                                    if ($product) {
+                                                        $set('price', $product->price);
+                                                        $set('unit_of_measure_id', $product->unit_of_measure_id);
+                                                        $set('tax_rate', $product->tax_rate ?? 0);
+                                                    }
+                                                }
+                                            })
+                                            ->columnSpan(2),
+                                        Forms\Components\TextInput::make('quantity')
+                                            ->label('Cantidad Total')
+                                            ->numeric()
+                                            ->required()
+                                            ->minValue(1)
+                                            ->reactive()
+                                            ->afterStateUpdated(fn ($state, Forms\Get $get, Forms\Set $set) => 
+                                                SaleResource::updateTotals($get, $set)
+                                            ),
+                                        Forms\Components\Select::make('unit_of_measure_id')
+                                            ->label('Unidad')
+                                            ->relationship('unitOfMeasure', 'name')
+                                            ->required()
+                                            ->disabled(),
+                                    ]),
+                                    
+                                Forms\Components\Grid::make(2)
+                                    ->schema([
+                                        Forms\Components\TextInput::make('price')
+                                            ->label('Precio Unitario')
+                                            ->numeric()
+                                            ->required()
+                                            ->prefix('$')
+                                            ->reactive()
+                                            ->afterStateUpdated(fn ($state, Forms\Get $get, Forms\Set $set) => 
+                                                SaleResource::updateTotals($get, $set)
+                                            ),
+                                        Forms\Components\Placeholder::make('item_total')
+                                            ->label('Total Item')
+                                            ->content(function (Forms\Get $get) {
+                                                $quantity = (float)($get('quantity') ?? 0);
+                                                $price = (float)($get('price') ?? 0);
+                                                $total = $quantity * $price;
+                                                return '$' . number_format($total, 2);
+                                            }),
+                                    ]),
+                                    
+                                // Asignación de lotes inline
+                                Forms\Components\Section::make('Lotes Asignados')
+                                    ->description('Asigna uno o varios lotes para este item')
+                                    ->schema([
+                                        Forms\Components\Repeater::make('lots')
+                                            ->relationship('lots')
+                                            ->schema([
+                                                Forms\Components\Select::make('product_lot_id')
+                                                    ->label('Lote')
+                                                    ->options(function (Forms\Get $get) {
+                                                        $productId = $get('../../product_id');
+                                                        if (!$productId) return [];
+                                                        
+                                                        return \App\Models\ProductLot::where('product_id', $productId)
+                                                            ->where('is_active', true)
+                                                            ->where('quantity', '>', 0)
+                                                            ->get()
+                                                            ->mapWithKeys(function ($lot) {
+                                                                return [
+                                                                    $lot->id => "{$lot->lot_number} (Stock: {$lot->quantity}, Vence: {$lot->expiration_date->format('d/m/Y')})"
+                                                                ];
+                                                            })
+                                                            ->toArray();
+                                                    })
+                                                    ->required()
+                                                    ->searchable()
+                                                    ->reactive()
+                                                    ->afterStateUpdated(function ($state, Forms\Set $set) {
+                                                        if ($state) {
+                                                            $lot = \App\Models\ProductLot::find($state);
+                                                            if ($lot) {
+                                                                $set('lot_number', $lot->lot_number);
+                                                                $set('expiration_date', $lot->expiration_date);
+                                                            }
+                                                        }
+                                                    }),
+                                                Forms\Components\TextInput::make('quantity')
+                                                    ->label('Cantidad')
+                                                    ->numeric()
+                                                    ->required()
+                                                    ->minValue(1),
+                                                Forms\Components\Hidden::make('lot_number'),
+                                                Forms\Components\Hidden::make('expiration_date'),
+                                            ])
+                                            ->columns(2)
+                                            ->defaultItems(0)
+                                            ->addActionLabel('Agregar Lote')
+                                            ->collapsible()
+                                            ->collapsed(),
+                                    ])
+                                    ->collapsible()
+                                    ->collapsed(),
+                            ])
+                            ->defaultItems(1)
+                            ->addActionLabel('Agregar Producto')
+                            ->reorderable(false)
+                            ->collapsible()
+                            ->itemLabel(fn (array $state): ?string => 
+                                isset($state['product_id']) 
+                                    ? \App\Models\Product::find($state['product_id'])?->name 
+                                    : null
+                            ),
+                    ]),
+                    
+                Forms\Components\Grid::make(3)
+                    ->schema([
+                        Forms\Components\TextInput::make('subtotal')
+                            ->label('Subtotal')
+                            ->numeric()
+                            ->prefix('$')
+                            ->disabled()
+                            ->dehydrated(),
+                        Forms\Components\TextInput::make('tax')
+                            ->label('IVA')
+                            ->numeric()
+                            ->prefix('$')
+                            ->disabled()
+                            ->dehydrated(),
+                        Forms\Components\TextInput::make('total')
+                            ->label('Total')
+                            ->numeric()
+                            ->prefix('$')
+                            ->disabled()
+                            ->dehydrated()
+                            ->extraAttributes(['class' => 'font-bold']),
+                    ]),
+            ]);
+        }
+        
+        // Formulario original para POS
+        return parent::form($form);
+    }
 
     protected function beforeCreate(): void
     {
@@ -187,6 +386,34 @@ class CreateSale extends CreateRecord
         Log::info('=== INICIANDO CREACIÓN DE VENTA ===');
         
         return DB::transaction(function () use ($data) {
+            // Si es pedido B2B, Filament maneja automáticamente items y lots
+            if (isset($data['source']) && $data['source'] === 'b2b') {
+                Log::info('Creando pedido B2B');
+                
+                // Calcular totales
+                $total = $this->calculateSaleTotal($data);
+                $subtotal = $this->calculateSaleSubtotal($data);
+                $tax = $total - $subtotal;
+                
+                $data['total'] = $total;
+                $data['subtotal'] = $subtotal;
+                $data['tax'] = $tax;
+                
+                // Crear la venta (Filament maneja items y lots automáticamente)
+                $sale = static::getModel()::create($data);
+                
+                Log::info('=== PEDIDO B2B CREADO EXITOSAMENTE ===');
+                
+                Notification::make()
+                    ->success()
+                    ->title('Pedido Creado')
+                    ->body('El pedido B2B ha sido creado con sus lotes asignados.')
+                    ->send();
+                
+                return $sale;
+            }
+            
+            // Lógica original para POS
             $locationId = $data['location_id'];
 
             // Validación de stock

@@ -15,17 +15,9 @@ class ViewSale extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            // Botón para editar la venta
-            Actions\EditAction::make(),
-            
-            // Acción para imprimir la tirilla en una nueva pestaña
-            Actions\Action::make('printReceipt')
-                ->label('Imprimir Tirilla')
-                ->color('gray')
-                ->icon('heroicon-o-printer')
-                ->url(fn (): string => route('sales.receipt.print', $this->record))
-                ->openUrlInNewTab(),
-            
+            // Botón para editar la venta (solo Pendiente/Separación)
+            Actions\EditAction::make()
+                ->visible(fn () => in_array($this->record->status, ['Pendiente', 'Separación'])),
             // Acción para descargar la factura en PDF
             Actions\Action::make('downloadInvoice')
                 ->label('Descargar Factura PDF')
@@ -38,7 +30,7 @@ class ViewSale extends ViewRecord
     // Método que genera y descarga el PDF
     public function downloadInvoicePdf()
     {
-        $sale = $this->record->load(['client', 'items.product.unitOfMeasure', 'items.unitOfMeasure']);
+        $sale = $this->record->load(['client', 'items.product.unitOfMeasure', 'items.unitOfMeasure', 'items.lots']);
         
         $pdf = Pdf::loadView('pdf.invoice', ['sale' => $sale]);
         
