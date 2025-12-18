@@ -173,7 +173,15 @@
 <div id="orderDetailModal" class="fixed right-0 inset-y-0 w-full md:w-4/4 lg:w-4/5 xl:w-4/5 bg-white shadow-2xl transform translate-x-full transition-transform duration-300 z-50 overflow-y-auto">
     <!-- Header -->
     <div class="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center z-10">
-        <h2 class="text-2xl font-bold text-gray-900" id="modalOrderTitle">Pedido #000000</h2>
+        <div class="flex items-center gap-4">
+            <h2 class="text-2xl font-bold text-gray-900" id="modalOrderTitle">Pedido #000000</h2>
+            
+            <!-- Botones de acción -->
+            <div class="flex gap-2" id="modalActionButtons">
+                <!-- Se llenarán dinámicamente -->
+            </div>
+        </div>
+        
         <button onclick="closeOrderDetail()" class="text-gray-500 hover:text-gray-700 transition-colors">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -255,12 +263,41 @@ $(document).ready(function() {
                 }
             },
             {
-                data: 'id',
+                data: null,
                 orderable: false,
-                render: function(data) {
-                    return `<button onclick="openOrderDetail(${data})" class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 font-semibold transition-all">
-                        Ver Detalle
-                    </button>`;
+                render: function(data, type, row) {
+                    let buttons = `
+                        <div class="flex gap-2 justify-center">
+                            <!-- Ver Detalle -->
+                            <button onclick="openOrderDetail(${row.id})" class="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all" title="Ver Detalle">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                </svg>
+                            </button>
+                            
+                            <!-- Imprimir Pedido -->
+                            <button onclick="printOrder(${row.id})" class="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all" title="Imprimir Pedido">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                                </svg>
+                            </button>
+                    `;
+                    
+                    // Mostrar botón de factura solo si está facturado y tiene PDF
+                    if (row.status === 'Facturado' && row.invoice_pdf_path) {
+                        buttons += `
+                            <!-- Ver Factura PDF -->
+                            <button onclick="viewInvoicePdf(${row.id})" class="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all" title="Ver Factura PDF">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                            </button>
+                        `;
+                    }
+                    
+                    buttons += `</div>`;
+                    return buttons;
                 }
             }
         ],
@@ -349,6 +386,30 @@ function closeOrderDetail() {
 
 function renderOrderDetail(order) {
     $('#modalOrderTitle').text('Pedido #' + String(order.id).padStart(6, '0'));
+    
+    // Agregar botones de acción
+    let actionButtons = `
+        <!-- Imprimir Pedido -->
+        <button onclick="printOrder(${order.id})" class="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all" title="Imprimir Pedido">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+            </svg>
+        </button>
+    `;
+    
+    // Agregar botón de factura si está facturado y tiene PDF
+    if (order.status === 'Facturado' && order.invoice_pdf_path) {
+        actionButtons += `
+            <!-- Ver Factura PDF -->
+            <button onclick="viewInvoicePdf(${order.id})" class="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all" title="Ver Factura PDF">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+            </button>
+        `;
+    }
+    
+    $('#modalActionButtons').html(actionButtons);
     
     const statusColors = {
         'Pendiente': 'bg-yellow-100 text-yellow-800 border-yellow-200',
@@ -473,5 +534,15 @@ $(document).keyup(function(e) {
         closeOrderDetail();
     }
 });
+
+// Función para ver la factura PDF en el navegador
+function viewInvoicePdf(orderId) {
+    window.open(`{{ url('/api/b2b/orders') }}/${orderId}/view-invoice`, '_blank');
+}
+
+// Función para imprimir el pedido
+function printOrder(orderId) {
+    window.open(`{{ url('/api/b2b/orders') }}/${orderId}/print`, '_blank');
+}
 </script>
 @endpush

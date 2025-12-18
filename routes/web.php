@@ -85,6 +85,8 @@ Route::middleware([
         Route::get('/pedidos/datatable', [\App\Http\Controllers\Api\OrderController::class, 'datatable'])->name('pedidos.datatable');
         Route::get('/pedidos/summary', [\App\Http\Controllers\Api\OrderController::class, 'summary'])->name('pedidos.summary');
         Route::get('/pedidos/{id}', [\App\Http\Controllers\Api\OrderController::class, 'show'])->name('pedidos.show');
+        Route::get('/orders/{sale}/print', [\App\Http\Controllers\B2BDocumentController::class, 'printOrder'])->name('orders.print');
+        Route::get('/orders/{sale}/view-invoice', [\App\Http\Controllers\B2BDocumentController::class, 'viewInvoice'])->name('orders.view-invoice');
     });
  
 });

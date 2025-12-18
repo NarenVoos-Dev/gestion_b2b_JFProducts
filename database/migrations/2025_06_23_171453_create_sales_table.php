@@ -15,13 +15,19 @@ return new class extends Migration
             $table->id();
             $table->foreignId('business_id')->constrained();
             $table->foreignId('client_id')->nullable()->constrained()->nullOnDelete();
-            $table->date('date');
+            $table->datetime('date'); // Cambiado de date a datetime para guardar hora
             $table->decimal('subtotal', 12, 2);
             $table->decimal('tax', 12, 2)->default(0);
             $table->decimal('total', 12, 2);
             $table->text('notes')->nullable();
             $table->boolean('is_cash')->default(true); // Usamos un booleano para 'Contado'. 'true' es Contado, 'false' es Crédito.
             $table->string('status')->default('Pagada')->comment('Valores: Pendiente, Facturado, Entregado, Finalizado');
+            
+            // Campos para facturación
+            $table->string('invoice_number')->nullable()->comment('Número de factura');
+            $table->string('invoice_pdf_path')->nullable()->comment('Ruta del PDF de factura subido');
+            $table->timestamp('invoiced_at')->nullable()->comment('Fecha y hora de facturación');
+            
             $table->timestamps();
         });
 

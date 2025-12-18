@@ -14,8 +14,11 @@ class ListSales extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make()
-            ->icon('heroicon-o-plus-circle'), // Puedes usar cualquier ícono de Heroicons,
+            Actions\Action::make('create')
+                ->label('Nuevo Pedido')
+                ->icon('heroicon-o-plus-circle')
+                ->url(route('filament.admin.resources.sales.create-b2b'))
+                ->color('success'),
         ];
     }
     protected function getHeaderWidgets(): array

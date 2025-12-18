@@ -234,6 +234,11 @@ class SaleResource extends Resource
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\ViewAction::make(),
                     Tables\Actions\EditAction::make()
+                        ->url(fn (Sale $record) => 
+                            $record->source === 'b2b' 
+                                ? route('filament.admin.resources.sales.edit-b2b', ['record' => $record->id])
+                                : route('filament.admin.resources.sales.edit', ['record' => $record->id])
+                        )
                         ->visible(fn (Sale $record) => 
                             $record->source === 'pos' || 
                             in_array($record->status, ['Pendiente', 'Separación'])
@@ -439,34 +444,57 @@ class SaleResource extends Resource
                         ->label('Cambiar Estado')
                         ->icon('heroicon-o-arrow-path')
                         ->color('primary')
+                        ->modalWidth('2xl')
                         ->form([
-                            Forms\Components\Select::make('status')
-                                ->label('Nuevo Estado')
-                                ->options(fn (Sale $record) => match($record->status) {
-                                    'Pendiente' => [
-                                        'Separación' => 'Separación',
-                                        'Facturado' => 'Facturado',
-                                    ],
-                                    'Separación' => [
-                                        'Facturado' => 'Facturado',
-                                    ],
-                                    'Facturado' => [
-                                        'Finalizado' => 'Finalizado',
-                                    ],
-                                    default => [],
-                                })
-                                ->required()
-                                ->live()
-                                ->helperText(fn (Sale $record) => 
-                                    $record->status === 'Separación' 
-                                        ? " Al cambiar a 'Facturado' se creará la cuenta por cobrar y se descontará el inventario"
-                                        : null
-                                ),
+                            Forms\Components\Grid::make(2)
+                                ->schema([
+                                    Forms\Components\Select::make('status')
+                                        ->label('Nuevo Estado')
+                                        ->options(fn (Sale $record) => match($record->status) {
+                                            'Pendiente' => [
+                                                'Separación' => 'Separación',
+                                                'Facturado' => 'Facturado',
+                                            ],
+                                            'Separación' => [
+                                                'Facturado' => 'Facturado',
+                                            ],
+                                            'Facturado' => [
+                                                'Finalizado' => 'Finalizado',
+                                            ],
+                                            default => [],
+                                        })
+                                        ->required()
+                                        ->live()
+                                        ->helperText(fn (Sale $record) => 
+                                            $record->status === 'Separación' 
+                                                ? " Al cambiar a 'Facturado' se creará la cuenta por cobrar y se descontará el inventario"
+                                                : null
+                                        ),
+                                    
+                                    Forms\Components\DateTimePicker::make('invoiced_at')
+                                        ->label('Fecha de Facturación')
+                                        ->default(now())
+                                        ->required()
+                                        ->native(false)
+                                        ->helperText('Fecha y hora en que se generó la factura')
+                                        ->visible(fn (Forms\Get $get) => $get('status') === 'Facturado'),
+                                ]),
+                            
                             Forms\Components\TextInput::make('invoice_number')
                                 ->label('Número de Factura')
                                 ->required()
                                 ->maxLength(50)
                                 ->helperText('Ingresa el número de factura')
+                                ->visible(fn (Forms\Get $get) => $get('status') === 'Facturado'),
+                            
+                            Forms\Components\FileUpload::make('invoice_pdf')
+                                ->label('PDF de Factura')
+                                ->disk('public')
+                                ->directory('invoices')
+                                ->acceptedFileTypes(['application/pdf'])
+                                ->maxSize(5120) // 5MB
+                                ->required()
+                                ->helperText('Sube el PDF de la factura (máx. 5MB)')
                                 ->visible(fn (Forms\Get $get) => $get('status') === 'Facturado'),
                         ])
                         ->action(function (Sale $record, array $data) {
@@ -522,8 +550,20 @@ class SaleResource extends Resource
                                 }
                             }
                             
+                            
                             try {
                                 $record->status = $data['status'];
+                                
+                                // Si se está facturando, guardar también el PDF y la fecha
+                                if ($data['status'] === 'Facturado') {
+                                    if (!empty($data['invoice_pdf'])) {
+                                        $record->invoice_pdf_path = $data['invoice_pdf'];
+                                    }
+                                    if (!empty($data['invoiced_at'])) {
+                                        $record->invoiced_at = $data['invoiced_at'];
+                                    }
+                                }
+                                
                                 $record->save();
                                 
                                 \Filament\Notifications\Notification::make()
@@ -665,6 +705,31 @@ class SaleResource extends Resource
                             $record->source === 'b2b' && 
                             in_array($record->status, ['Pendiente', 'Separación'])
                         ),
+                    
+                    // Ver factura PDF subida
+                    Tables\Actions\Action::make('viewInvoice')
+                        ->label('Ver Factura')
+                        ->icon('heroicon-o-eye')
+                        ->color('success')
+                        ->url(fn (Sale $record) => $record->getInvoicePdfUrl())
+                        ->openUrlInNewTab()
+                        ->visible(fn (Sale $record) => $record->hasInvoicePdf()),
+                    
+                    // Descargar factura PDF subida
+                    Tables\Actions\Action::make('downloadInvoice')
+                        ->label('Descargar Factura')
+                        ->icon('heroicon-o-arrow-down-tray')
+                        ->color('info')
+                        ->action(function (Sale $record) {
+                            if ($record->hasInvoicePdf()) {
+                                return \Storage::disk('public')->download(
+                                    $record->invoice_pdf_path,
+                                    "factura-{$record->invoice_number}.pdf"
+                                );
+                            }
+                        })
+                        ->visible(fn (Sale $record) => $record->hasInvoicePdf()),
+                    
                     Tables\Actions\Action::make('downloadPdf')
                         ->label('Descargar Pedido PDF')
                         ->icon('heroicon-o-document-arrow-down')
@@ -682,6 +747,8 @@ class SaleResource extends Resource
         return [
             'index' => Pages\ListSales::route('/'),
             'create' => Pages\CreateSale::route('/create'),
+            'create-b2b' => Pages\CreateB2BOrderPage::route('/create-b2b'),
+            'edit-b2b' => Pages\EditB2BOrderPage::route('/{record}/edit-b2b'),
             'edit' => Pages\EditSale::route('/{record}/edit'),
             'view' => Pages\ViewSale::route('/{record}'),
         ];

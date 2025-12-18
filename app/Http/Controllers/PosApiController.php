@@ -451,6 +451,12 @@ class PosApiController extends Controller
         }
 
         $pedidos = $query->paginate(10);
+        
+        // Agregar información de factura a cada pedido
+        $pedidos->getCollection()->transform(function ($sale) {
+            $sale->has_invoice_pdf = $sale->hasInvoicePdf();
+            return $sale;
+        });
 
         return response()->json($pedidos);
     }

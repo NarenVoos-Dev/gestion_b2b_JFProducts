@@ -10,7 +10,24 @@ class Sale extends Model
 {
     use HasFactory;
     
-    protected $fillable = ['business_id', 'client_id', 'date', 'subtotal', 'tax', 'total','is_cash', 'status', 'pending_amount','location_id', 'notes', 'source'];
+    
+    protected $fillable = [
+        'business_id', 
+        'client_id', 
+        'date', 
+        'subtotal', 
+        'tax', 
+        'total',
+        'is_cash', 
+        'status', 
+        'pending_amount',
+        'location_id', 
+        'notes', 
+        'source',
+        'invoice_number',
+        'invoice_pdf_path',
+        'invoiced_at',
+    ];
     
    
     protected $casts = [         
@@ -19,6 +36,7 @@ class Sale extends Model
         'subtotal' => 'decimal:2',
         'tax' => 'decimal:2',
         'total' => 'decimal:2',
+        'invoiced_at' => 'datetime',
     ];
 
     public function location(): BelongsTo
@@ -64,6 +82,25 @@ class Sale extends Model
     public function accountReceivable()
     {
         return $this->hasOne(AccountReceivable::class);
+    }
+
+    /**
+     * Obtener URL de descarga de la factura PDF
+     */
+    public function getInvoicePdfUrl()
+    {
+        if ($this->invoice_pdf_path) {
+            return \Storage::url($this->invoice_pdf_path);
+        }
+        return null;
+    }
+
+    /**
+     * Verificar si tiene factura PDF subida
+     */
+    public function hasInvoicePdf(): bool
+    {
+        return !empty($this->invoice_pdf_path) && \Storage::disk('public')->exists($this->invoice_pdf_path);
     }
 
 }

@@ -209,11 +209,25 @@ class OrderController extends Controller
         
         $pedidos = $query->skip($start)->take($length)->get();
         
+        // Transformar datos para incluir invoice_pdf_path
+        $data = $pedidos->map(function($sale) {
+            return [
+                'id' => $sale->id,
+                'date' => $sale->date,
+                'status' => $sale->status,
+                'subtotal' => $sale->subtotal,
+                'tax' => $sale->tax,
+                'total' => $sale->total,
+                'invoice_pdf_path' => $sale->invoice_pdf_path,
+                'invoice_number' => $sale->invoice_number,
+            ];
+        });
+        
         return response()->json([
             'draw' => intval($request->draw),
             'recordsTotal' => $totalRecords,
             'recordsFiltered' => $filteredRecords,
-            'data' => $pedidos
+            'data' => $data
         ]);
     }
     
