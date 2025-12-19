@@ -4,60 +4,59 @@
 
 // Función para abrir/cerrar el carrito
 function toggleCart() {
-
     //console.log('Abrir/Cerrar carrito');
-    const cartPanel = document.getElementById('cartPanel');
-    const overlay = document.getElementById('cartOverlay');
-    
+    const cartPanel = document.getElementById("cartPanel");
+    const overlay = document.getElementById("cartOverlay");
+
     if (!cartPanel || !overlay) {
-        console.error('Cart panel or overlay not found');
+        console.error("Cart panel or overlay not found");
         return;
     }
-    
-    const isOpen = !cartPanel.classList.contains('translate-x-full');
-    
+
+    const isOpen = !cartPanel.classList.contains("translate-x-full");
+
     if (isOpen) {
         closeCart();
     } else {
-        cartPanel.classList.remove('translate-x-full');
-        overlay.classList.remove('opacity-0');
-        overlay.classList.remove('invisible');
+        cartPanel.classList.remove("translate-x-full");
+        overlay.classList.remove("opacity-0");
+        overlay.classList.remove("invisible");
         loadCart();
     }
 }
 
 // Función para cerrar el carrito
 function closeCart() {
-    const cartPanel = document.getElementById('cartPanel');
-    const overlay = document.getElementById('cartOverlay');
+    const cartPanel = document.getElementById("cartPanel");
+    const overlay = document.getElementById("cartOverlay");
     if (cartPanel && overlay) {
-        cartPanel.classList.add('translate-x-full');
-        overlay.classList.add('opacity-0');
-        overlay.classList.add('invisible');
+        cartPanel.classList.add("translate-x-full");
+        overlay.classList.add("opacity-0");
+        overlay.classList.add("invisible");
     }
 }
 
 // Función para cargar el carrito desde el servidor
 function loadCart() {
     showCartSkeleton();
-    
-    apiRequest('/api/b2b/cart', 'GET')
-        .then(response => {
+
+    apiRequest("/api/b2b/cart", "GET")
+        .then((response) => {
             if (response.success) {
                 renderCart(response);
             }
         })
-        .catch(error => {
-            console.error('Error loading cart:', error);
-            showNotification('Error al cargar el carrito', 'error');
+        .catch((error) => {
+            console.error("Error loading cart:", error);
+            showNotification("Error al cargar el carrito", "error");
         });
 }
 
 // Mostrar skeleton loader
 function showCartSkeleton() {
-    const cartItems = document.getElementById('cartItems');
+    const cartItems = document.getElementById("cartItems");
     if (!cartItems) return;
-    
+
     cartItems.innerHTML = `
         <div class="space-y-4 animate-pulse">
             <div class="bg-gray-200 rounded-xl h-24"></div>
@@ -70,13 +69,13 @@ function showCartSkeleton() {
 // Renderizar el carrito con los datos del servidor
 function renderCart(cartData) {
     //console.log('Rdenriza carrito', cartData)
-    const cartItems = document.getElementById('cartItems');
-    const cartFooter = document.getElementById('cartFooter');
-    
+    const cartItems = document.getElementById("cartItems");
+    const cartFooter = document.getElementById("cartFooter");
+
     if (!cartItems || !cartFooter) return;
-    
+
     if (!cartData || cartData.cart.length === 0) {
-        cartFooter.style.display = 'none';
+        cartFooter.style.display = "none";
         cartItems.innerHTML = `
             <div class="flex flex-col items-center justify-center h-full text-center">
                 <svg class="w-24 h-24 text-gray-300 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -88,15 +87,28 @@ function renderCart(cartData) {
                 <p class="text-gray-400 text-sm mt-2">Agrega productos para comenzar tu pedido</p>
             </div>
         `;
+        
+        // Limpiar timer de expiración
+        if (expirationTimer) {
+            clearInterval(expirationTimer);
+            expirationTimer = null;
+        }
+        
+        // Limpiar div de expiración
+        const expirationDiv = document.getElementById('cartExpiration');
+        if (expirationDiv) {
+            expirationDiv.innerHTML = '';
+        }
+        
         return;
     }
-    
-    cartFooter.style.display = 'block';
-    
+
+    cartFooter.style.display = "block";
+
     let html = '<div class="space-y-4">';
     //console.log('=== RENDERIZANDO CARRITO ===');
     //console.log('Total items:', cartData.cart.length);
-    cartData.cart.forEach(item => {
+    cartData.cart.forEach((item) => {
         //console.log('Item:', item.name);
         //console.log('  - image_url:', item.image_url);
         //console.log('  - image:', item.image);
@@ -104,49 +116,72 @@ function renderCart(cartData) {
         // Calcular IVA del item si aplica
         const itemTax = item.has_tax ? item.tax : 0;
         const taxRate = item.tax_rate || 0;
-        const taxBadge = item.has_tax 
+        const taxBadge = item.has_tax
             ? `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                 IVA ${taxRate}%: $${parseFloat(itemTax).toLocaleString('es-CO', {minimumFractionDigits: 0})}
+                 IVA ${taxRate}%: $${parseFloat(itemTax).toLocaleString(
+                  "es-CO",
+                  { minimumFractionDigits: 0 }
+              )}
                </span>`
-            : '';
-        
+            : "";
+
         html += `
-            <div data-cart-item-id="${item.id}" class="bg-white rounded-xl p-4 shadow-sm border-2 border-gray-100 hover:border-[#0f4db3]/30 transition-all">
+            <div data-cart-item-id="${
+                item.id
+            }" class="bg-white rounded-xl p-4 shadow-sm border-2 border-gray-100 hover:border-[#0f4db3]/30 transition-all">
                 <div class="flex gap-4">
                     <div class="w-16 h-16 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
-                        <img src="${item.image_url || '/img/no-image.png'}" 
+                        <img src="${item.image_url || "/img/no-image.png"}" 
                              alt="${item.name}" 
                              class="w-full h-full object-contain p-1"
                              onerror="this.src='/img/no-image.png'">
                     </div>
                     <div class="flex-1 min-w-0">
-                        <h4 class="font-bold text-gray-900 text-sm truncate">${item.name}</h4>
+                        <h4 class="font-bold text-gray-900 text-sm truncate">${
+                            item.name
+                        }</h4>
                         <p class="text-xs text-gray-500">${item.laboratory}</p>
                         
-                        ${ item.lot_number ? `
+                        ${
+                            item.lot_number
+                                ? `
                             <div class="flex items-center gap-2 mt-1">
                                 <span class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-medium">
                                     Lote: ${item.lot_number}
                                 </span>
                                 <span class="text-xs text-gray-500">
-                                    Vence: ${item.expiration_date ? new Date(item.expiration_date).toLocaleDateString('es-CO') : '-'}
+                                    Vence: ${
+                                        item.expiration_date
+                                            ? new Date(
+                                                  item.expiration_date
+                                              ).toLocaleDateString("es-CO")
+                                            : "-"
+                                    }
                                 </span>
                             </div>
-                        ` : `
+                        `
+                                : `
                             <button 
-                                onclick="openLotSelectionModal(${item.id}, ${item.product_id}, '${item.name.replace(/'/g, "\\'")}')"
+                                onclick="openLotSelectionModal(${item.id}, ${
+                                      item.product_id
+                                  }, '${item.name.replace(/'/g, "\\'")}')"
                                 class="text-xs text-amber-600 hover:text-amber-800 mt-1 block bg-amber-50 hover:bg-amber-100 px-2 py-1 rounded border border-amber-200 transition-colors cursor-pointer"
                             >
-                                ⚠️ Sin lote asignado - Clic para asignar
+                                 Sin lote asignado - Clic para asignar
                             </button>
-                        `}
+                        `
+                        }
                         
                         <div class="flex items-center gap-2 mt-1">
-                            <p class="text-lg font-black text-[#0f4db3]">$${parseFloat(item.price).toLocaleString('es-CO')}</p>
+                            <p class="text-lg font-black text-[#0f4db3]">$${parseFloat(
+                                item.price
+                            ).toLocaleString("es-CO")}</p>
                             ${taxBadge}
                         </div>
                     </div>
-                    <button onclick="removeFromCart(${item.id})" class="text-red-500 hover:text-red-700 hover:bg-red-50 w-8 h-8 rounded-lg flex items-center justify-center transition-all flex-shrink-0">
+                    <button onclick="removeFromCart(${
+                        item.id
+                    })" class="text-red-500 hover:text-red-700 hover:bg-red-50 w-8 h-8 rounded-lg flex items-center justify-center transition-all flex-shrink-0">
                         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
                         </svg>
@@ -154,31 +189,46 @@ function renderCart(cartData) {
                 </div>
                 <div class="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
                     <div class="flex items-center bg-gray-100 rounded-lg overflow-hidden">
-                        <button onclick="updateQuantity(${item.id}, ${item.quantity - 1})" class="px-3 py-1 text-lg font-bold text-[#0f4db3] hover:bg-[#0f4db3]/10 transition-colors">−</button>
+                        <button onclick="updateQuantity(${item.id}, ${
+            item.quantity - 1
+        })" class="px-3 py-1 text-lg font-bold text-[#0f4db3] hover:bg-[#0f4db3]/10 transition-colors">−</button>
                         <input 
                             type="number" 
                             value="${item.quantity}" 
                             min="1" 
                             class="w-16 px-2 py-1 font-bold text-gray-900 text-center bg-transparent border-none focus:outline-none item-quantity-input"
                             data-cart-item-id="${item.id}"
-                            onchange="handleQuantityChange(${item.id}, this.value)"
-                            onkeyup="handleQuantityChange(${item.id}, this.value)"
+                            onchange="handleQuantityChange(${
+                                item.id
+                            }, this.value)"
+                            onkeyup="handleQuantityChange(${
+                                item.id
+                            }, this.value)"
                         />
-                        <button onclick="updateQuantity(${item.id}, ${item.quantity + 1})" class="px-3 py-1 text-lg font-bold text-[#0f4db3] hover:bg-[#0f4db3]/10 transition-colors">+</button>
+                        <button onclick="updateQuantity(${item.id}, ${
+            item.quantity + 1
+        })" class="px-3 py-1 text-lg font-bold text-[#0f4db3] hover:bg-[#0f4db3]/10 transition-colors">+</button>
                     </div>
                     <div class="text-right">
                         <div class="text-xs text-gray-500">Subtotal</div>
-                        <div class="font-bold text-gray-900 item-subtotal">$${parseFloat(item.subtotal).toLocaleString('es-CO')}</div>
+                        <div class="font-bold text-gray-900 item-subtotal">$${parseFloat(
+                            item.subtotal
+                        ).toLocaleString("es-CO")}</div>
                     </div>
                 </div>
             </div>
         `;
     });
-    html += '</div>';
-    
+    html += "</div>";
+
     cartItems.innerHTML = html;
     updateCartTotals(cartData.summary);
+
+    if (cartData.expiration) {
+    updateExpirationUI(cartData.expiration);
 }
+}
+
 
 // Manejar cambios de cantidad desde el input (con debounce)
 let quantityChangeTimeout = null;
@@ -187,13 +237,13 @@ function handleQuantityChange(cartItemId, newValue) {
     if (quantityChangeTimeout) {
         clearTimeout(quantityChangeTimeout);
     }
-    
+
     // Validar que sea un número válido
     const quantity = parseInt(newValue);
     if (isNaN(quantity) || quantity < 1) {
         return;
     }
-    
+
     // Esperar 500ms después de que el usuario deje de escribir
     quantityChangeTimeout = setTimeout(() => {
         updateQuantity(cartItemId, quantity);
@@ -206,71 +256,91 @@ function updateQuantity(cartItemId, newQuantity) {
         removeFromCart(cartItemId);
         return;
     }
-    
+
     // Actualizar UI inmediatamente (optimista)
-    const itemElement = document.querySelector(`[data-cart-item-id="${cartItemId}"]`);
+    const itemElement = document.querySelector(
+        `[data-cart-item-id="${cartItemId}"]`
+    );
     if (!itemElement) return;
-    
-    const quantityInput = itemElement.querySelector('.item-quantity-input');
-    const oldQuantity = parseInt(quantityInput ? quantityInput.value : newQuantity);
-    
+
+    const quantityInput = itemElement.querySelector(".item-quantity-input");
+    const oldQuantity = parseInt(
+        quantityInput ? quantityInput.value : newQuantity
+    );
+
     // Obtener precio unitario del item
-    const priceText = itemElement.querySelector('.text-\\[\\#0f4db3\\]').textContent;
+    const priceText = itemElement.querySelector(
+        ".text-\\[\\#0f4db3\\]"
+    ).textContent;
     // Remover $ y puntos de miles, convertir comas a puntos decimales
-    const price = parseFloat(priceText.replace(/\$/g, '').replace(/\./g, '').replace(/,/g, '.'));
-    
+    const price = parseFloat(
+        priceText.replace(/\$/g, "").replace(/\./g, "").replace(/,/g, ".")
+    );
+
     // Calcular nuevo subtotal
     const newSubtotal = price * newQuantity;
-    
+
     // Actualizar cantidad en UI
     if (quantityInput) quantityInput.value = newQuantity;
-    
+
     // Actualizar subtotal en UI
-    const subtotalElement = itemElement.querySelector('.item-subtotal');
+    const subtotalElement = itemElement.querySelector(".item-subtotal");
     if (subtotalElement) {
-        subtotalElement.textContent = '$' + newSubtotal.toLocaleString('es-CO', {minimumFractionDigits: 0, maximumFractionDigits: 0});
+        subtotalElement.textContent =
+            "$" +
+            newSubtotal.toLocaleString("es-CO", {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0,
+            });
     }
-    
+
     // Recalcular totales de forma optimista
     updateCartTotalsOptimistic();
-    
+
     // Luego hacer la petición al servidor en background
-    apiRequest('/api/b2b/cart/update', 'POST', {
+    apiRequest("/api/b2b/cart/update", "POST", {
         cart_item_id: cartItemId,
-        quantity: newQuantity
+        quantity: newQuantity,
     })
-    .then(response => {
-        if (response.success) {
-            // Actualizar con valores reales del servidor
-            loadCart();
-        }
-    })
-    .catch(error => {
-        // Rollback: restaurar cantidad anterior
-        if (quantityInput) quantityInput.value = oldQuantity;
-        loadCart(); // Recargar para restaurar estado correcto
-        showNotification(error.message || 'Error al actualizar cantidad', 'error');
-    });
+        .then((response) => {
+            if (response.success) {
+                // Actualizar con valores reales del servidor
+                loadCart();
+            }
+        })
+        .catch((error) => {
+            // Rollback: restaurar cantidad anterior
+            if (quantityInput) quantityInput.value = oldQuantity;
+            loadCart(); // Recargar para restaurar estado correcto
+            showNotification(
+                error.message || "Error al actualizar cantidad",
+                "error"
+            );
+        });
 }
 
 // Función para recalcular totales de forma optimista
 function updateCartTotalsOptimistic() {
     let subtotal = 0;
     let tax = 0;
-    
+
     // Recorrer todos los items visibles en el carrito
-    document.querySelectorAll('[data-cart-item-id]').forEach(itemElement => {
-        const quantityInput = itemElement.querySelector('.item-quantity-input');
+    document.querySelectorAll("[data-cart-item-id]").forEach((itemElement) => {
+        const quantityInput = itemElement.querySelector(".item-quantity-input");
         const quantity = parseInt(quantityInput ? quantityInput.value : 0);
-        
-        const priceText = itemElement.querySelector('.text-\\[\\#0f4db3\\]').textContent;
-        const price = parseFloat(priceText.replace(/\$/g, '').replace(/\./g, '').replace(/,/g, '.'));
-        
+
+        const priceText = itemElement.querySelector(
+            ".text-\\[\\#0f4db3\\]"
+        ).textContent;
+        const price = parseFloat(
+            priceText.replace(/\$/g, "").replace(/\./g, "").replace(/,/g, ".")
+        );
+
         const itemSubtotal = price * quantity;
         subtotal += itemSubtotal;
-        
+
         // Verificar si tiene IVA
-        const taxBadge = itemElement.querySelector('.bg-green-100');
+        const taxBadge = itemElement.querySelector(".bg-green-100");
         if (taxBadge) {
             // Extraer porcentaje de IVA del badge
             const taxText = taxBadge.textContent;
@@ -279,58 +349,65 @@ function updateCartTotalsOptimistic() {
                 const taxRate = parseFloat(taxRateMatch[1]);
                 const itemTax = itemSubtotal * (taxRate / 100);
                 tax += itemTax;
-                
+
                 // Actualizar el monto de IVA en el badge
-                taxBadge.innerHTML = `IVA ${taxRate}%: $${itemTax.toLocaleString('es-CO', {minimumFractionDigits: 0})}`;
+                taxBadge.innerHTML = `IVA ${taxRate}%: $${itemTax.toLocaleString(
+                    "es-CO",
+                    { minimumFractionDigits: 0 }
+                )}`;
             }
         }
     });
-    
+
     const total = subtotal + tax;
-    
+
     // Actualizar totales en el footer
     updateCartTotals({
         subtotal: subtotal,
         tax: tax,
-        total: total
+        total: total,
     });
 }
 
 // Eliminar del carrito con optimistic update mejorado
 function removeFromCart(cartItemId) {
     // Obtener badge actual
-    const badge = document.getElementById('cartBadge');
+    const badge = document.getElementById("cartBadge");
     const currentCount = parseInt(badge.textContent) || 0;
-    
+
     // Actualizar badge inmediatamente
     updateCartBadge(Math.max(0, currentCount - 1));
-    
+
     // Eliminar visualmente el item del DOM
-    const itemElement = document.querySelector(`[data-cart-item-id="${cartItemId}"]`);
+    const itemElement = document.querySelector(
+        `[data-cart-item-id="${cartItemId}"]`
+    );
     if (itemElement) {
         // Guardar referencia para rollback
         const parentElement = itemElement.parentElement;
         const nextSibling = itemElement.nextSibling;
         const itemClone = itemElement.cloneNode(true);
-        
+
         // Animar salida y eliminar
-        itemElement.style.transition = 'all 0.3s ease';
-        itemElement.style.opacity = '0';
-        itemElement.style.transform = 'translateX(-20px)';
-        
+        itemElement.style.transition = "all 0.3s ease";
+        itemElement.style.opacity = "0";
+        itemElement.style.transform = "translateX(-20px)";
+
         setTimeout(() => {
             itemElement.remove();
-            
+
             // Recalcular totales después de eliminar
             updateCartTotalsOptimistic();
-            
+
             // Verificar si el carrito quedó vacío
-            const remainingItems = document.querySelectorAll('[data-cart-item-id]');
+            const remainingItems = document.querySelectorAll(
+                "[data-cart-item-id]"
+            );
             if (remainingItems.length === 0) {
                 // Mostrar mensaje de carrito vacío
-                const cartItems = document.getElementById('cartItems');
-                const cartFooter = document.getElementById('cartFooter');
-                cartFooter.style.display = 'none';
+                const cartItems = document.getElementById("cartItems");
+                const cartFooter = document.getElementById("cartFooter");
+                cartFooter.style.display = "none";
                 cartItems.innerHTML = `
                     <div class="flex flex-col items-center justify-center h-full text-center">
                         <svg class="w-24 h-24 text-gray-300 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -344,65 +421,280 @@ function removeFromCart(cartItemId) {
                 `;
             }
         }, 300);
-        
+
         // Hacer petición al servidor en background
-        apiRequest(`/api/b2b/cart/remove/${cartItemId}`, 'DELETE')
-        .then(response => {
-            if (response.success) {
-                showNotification(response.message, 'info');
-                updateCartBadge(response.cart_count);
-                // Actualizar con datos reales del servidor
-                loadCart();
-            }
-        })
-        .catch(error => {
-            // Rollback en caso de error: restaurar el item
-            if (nextSibling) {
-                parentElement.insertBefore(itemClone, nextSibling);
-            } else {
-                parentElement.appendChild(itemClone);
-            }
-            updateCartBadge(currentCount);
-            updateCartTotalsOptimistic();
-            showNotification('Error al eliminar producto', 'error');
-        });
+        apiRequest(`/api/b2b/cart/remove/${cartItemId}`, "DELETE")
+            .then((response) => {
+                if (response.success) {
+                    showNotification(response.message, "info");
+                    updateCartBadge(response.cart_count);
+                    // Actualizar con datos reales del servidor
+                    loadCart();
+                }
+            })
+            .catch((error) => {
+                // Rollback en caso de error: restaurar el item
+                if (nextSibling) {
+                    parentElement.insertBefore(itemClone, nextSibling);
+                } else {
+                    parentElement.appendChild(itemClone);
+                }
+                updateCartBadge(currentCount);
+                updateCartTotalsOptimistic();
+                showNotification("Error al eliminar producto", "error");
+            });
     }
 }
 
 // Actualizar totales en el footer
 function updateCartTotals(summary) {
-    const subtotalElement = document.getElementById('cartSubtotal');
-    const taxElement = document.getElementById('cartTax');
-    const totalElement = document.getElementById('cartTotal');
+    const subtotalElement = document.getElementById("cartSubtotal");
+    const taxElement = document.getElementById("cartTax");
+    const totalElement = document.getElementById("cartTotal");
+
+    if (subtotalElement)
+        subtotalElement.textContent =
+            "$" + parseFloat(summary.subtotal).toLocaleString("es-CO");
+    if (taxElement)
+        taxElement.textContent =
+            "$" + parseFloat(summary.tax).toLocaleString("es-CO");
+    if (totalElement)
+        totalElement.textContent =
+            "$" + parseFloat(summary.total).toLocaleString("es-CO");
+}
+
+// ============================================
+// SISTEMA DE EXPIRACIÓN DE CARRITO
+// ============================================
+
+let expirationTimer = null;
+let currentExpirationData = null;
+
+// Actualizar UI de expiración
+function updateExpirationUI(expirationData) {
+    if (!expirationData) return;
+
+    currentExpirationData = expirationData;
+
+    // Limpiar timer anterior
+    if (expirationTimer) {
+        clearInterval(expirationTimer);
+    }
+
+    // Crear/actualizar elemento de expiración DEBAJO del header azul (área blanca)
+    const cartItemsContainer = document.getElementById("cartItems");
+    if (!cartItemsContainer) return;
+
+    let expirationDiv = document.getElementById("cartExpiration");
+    if (!expirationDiv) {
+        expirationDiv = document.createElement("div");
+        expirationDiv.id = "cartExpiration";
+        expirationDiv.className = "mb-4";
+        // Insertar al inicio del contenedor de items
+        cartItemsContainer.insertBefore(expirationDiv, cartItemsContainer.firstChild);
+    }
+
+    // Actualizar contador cada segundo
+    expirationTimer = setInterval(() => {
+        renderExpirationStatus();
+    }, 1000);
+
+    renderExpirationStatus();
+}
+
+// Renderizar estado de expiración
+function renderExpirationStatus() {
+    const expirationDiv = document.getElementById("cartExpiration");
+    if (!expirationDiv || !currentExpirationData) return;
+
+    const { expires_at, extension_status, extension_count, max_extensions } = currentExpirationData;
+
+    if (!expires_at) {
+        expirationDiv.innerHTML = "";
+        return;
+    }
+
+    // Parsear fecha correctamente
+    const expiresDate = new Date(expires_at);
+    const now = new Date();
     
-    if (subtotalElement) subtotalElement.textContent = '$' + parseFloat(summary.subtotal).toLocaleString('es-CO');
-    if (taxElement) taxElement.textContent = '$' + parseFloat(summary.tax).toLocaleString('es-CO');
-    if (totalElement) totalElement.textContent = '$' + parseFloat(summary.total).toLocaleString('es-CO');
+    // Debug
+    console.log('Expires at:', expires_at);
+    console.log('Expires Date:', expiresDate);
+    console.log('Now:', now);
+    
+    // Validar que la fecha sea válida
+    if (isNaN(expiresDate.getTime())) {
+        console.error('Fecha de expiración inválida:', expires_at);
+        expirationDiv.innerHTML = "";
+        return;
+    }
+    
+    const diff = expiresDate.getTime() - now.getTime();
+    const isExpired = diff <= 0;
+
+    // Calcular tiempo restante en milisegundos
+    const totalSeconds = Math.floor(Math.abs(diff) / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    
+    console.log('Diff (ms):', diff);
+    console.log('Minutes:', minutes, 'Seconds:', seconds);
+
+    let html = "";
+
+    // Caso 1: Prórroga pendiente
+    if (extension_status === "pending") {
+        html = `
+            <div class="bg-yellow-50 border-l-4 border-yellow-500 px-3 py-2 flex items-center justify-between">
+                <div class="flex items-center gap-2 text-xs text-yellow-800">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span class="font-semibold">Esperando aprobación del administrador</span>
+                </div>
+            </div>
+        `;
+    }
+    // Caso 2: Prórroga rechazada - LIMPIAR INMEDIATAMENTE
+    else if (extension_status === "rejected") {
+        // Limpiar timer
+        if (expirationTimer) {
+            clearInterval(expirationTimer);
+            expirationTimer = null;
+        }
+        
+        // Mostrar mensaje brevemente antes de limpiar
+        html = `
+            <div class="bg-red-50 border-l-4 border-red-500 px-3 py-2 flex items-center justify-between">
+                <div class="flex items-center gap-2 text-xs text-red-800">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                    <span class="font-semibold">Prórroga rechazada - Limpiando carrito...</span>
+                </div>
+            </div>
+        `;
+        expirationDiv.innerHTML = html;
+        
+        // Limpiar carrito después de 2 segundos
+        setTimeout(() => {
+            apiRequest('/api/b2b/cart/clear', 'DELETE')
+                .then(() => {
+                    loadCart();
+                    showNotification('Tu prórroga fue rechazada y el carrito fue limpiado', 'warning');
+                })
+                .catch(error => {
+                    console.error('Error al limpiar carrito:', error);
+                });
+        }, 2000);
+        
+        return;
+    }
+    // Caso 3: Carrito expirado - AUTO LIMPIAR
+    else if (isExpired) {
+        // Limpiar timer
+        if (expirationTimer) {
+            clearInterval(expirationTimer);
+            expirationTimer = null;
+        }
+        
+        // Limpiar carrito automáticamente
+        console.log('Carrito expirado - Limpiando automáticamente...');
+        apiRequest('/api/b2b/cart/clear', 'DELETE')
+            .then(() => {
+                // Recargar carrito para mostrar vacío
+                loadCart();
+                showNotification('Tu carrito ha expirado y fue limpiado', 'warning');
+            })
+            .catch(error => {
+                console.error('Error al limpiar carrito:', error);
+            });
+        
+        return; // No mostrar nada, se recargará el carrito
+    }
+    // Caso 4: Tiempo restante - DISEÑO HORIZONTAL NARANJA
+    else {
+        const isWarning = minutes < 1;
+        const canExtend = extension_count < max_extensions;
+
+        html = `
+            <div class="bg-orange-50 border-l-4 border-orange-500 px-3 py-2 flex items-center justify-between">
+                <div class="flex items-center gap-2 text-xs text-orange-800">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span class="font-semibold">Tiempo restante: ${minutes}m ${seconds}s</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="text-xs text-orange-700">Prórrogas: ${extension_count}/${max_extensions}</span>
+                    ${canExtend ? `
+                        <button 
+                            onclick="requestCartExtension()" 
+                            class="px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded text-xs font-semibold transition-all">
+                            Prorrogar
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+
+        // Habilitar botón de checkout
+        const checkoutBtn = document.querySelector('button[onclick="proceedToCheckout()"]');
+        if (checkoutBtn) {
+            checkoutBtn.disabled = false;
+            checkoutBtn.classList.remove("opacity-50", "cursor-not-allowed");
+        }
+    }
+
+    expirationDiv.innerHTML = html;
+}
+
+// Solicitar prórroga de carrito
+function requestCartExtension() {
+    if (!confirm("¿Deseas solicitar una prórroga para tu carrito?")) {
+        return;
+    }
+
+    apiRequest("/api/b2b/cart/request-extension", "POST")
+        .then((response) => {
+            if (response.success) {
+                showNotification(response.message, "success");
+                loadCart(); // Recargar carrito para actualizar estado
+            }
+        })
+        .catch((error) => {
+            console.error("Error requesting extension:", error);
+            showNotification(
+                error.message || "Error al solicitar prórroga",
+                "error"
+            );
+        });
 }
 
 // Función helper para hacer peticiones API
-function apiRequest(url, method = 'GET', data = null) {
+function apiRequest(url, method = "GET", data = null) {
     const options = {
         method: method,
         headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-            'Accept': 'application/json'
+            "Content-Type": "application/json",
+            "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')
+                .content,
+            Accept: "application/json",
         },
-        credentials: 'same-origin'
+        credentials: "same-origin",
     };
-    
-    if (data && method !== 'GET') {
+
+    if (data && method !== "GET") {
         options.body = JSON.stringify(data);
     }
-    
-    return fetch(url, options)
-        .then(response => {
-            if (!response.ok) {
-                return response.json().then(err => {
-                    throw new Error(err.message || 'Error en la petición');
-                });
-            }
-            return response.json();
-        });
+
+    return fetch(url, options).then((response) => {
+        if (!response.ok) {
+            return response.json().then((err) => {
+                throw new Error(err.message || "Error en la petición");
+            });
+        }
+        return response.json();
+    });
 }

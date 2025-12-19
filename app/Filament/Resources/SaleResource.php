@@ -32,6 +32,16 @@ class SaleResource extends Resource
 
     protected static ?string $modelLabel = 'Pedido de Venta';
     protected static ?string $pluralModelLabel = 'Pedidos de Venta';
+    
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::where('status', 'Pendiente')->count() ?: null;
+    }
+    
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
+    }
 
     public static function form(Form $form): Form
     {

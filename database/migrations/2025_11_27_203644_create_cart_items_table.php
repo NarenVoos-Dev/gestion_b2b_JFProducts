@@ -26,7 +26,13 @@ return new class extends Migration
             // Información del lote (opcional - admin puede asignar después)
             $table->foreignId('product_lot_id')->nullable()->constrained('product_lots')->onDelete('set null')->comment('Lote seleccionado por el cliente');
             $table->string('lot_number')->nullable()->comment('Número de lote para referencia rápida');
-            $table->date('expiration_date')->nullable()->comment('Fecha de vencimiento del lote');
+            $table->date('lot_expiration_date')->nullable()->comment('Fecha de vencimiento del lote');
+            
+            // Sistema de expiración de carrito
+            $table->timestamp('expiration_date')->nullable()->comment('Fecha de expiración del item en carrito (24h)');
+            $table->integer('extension_count')->default(0)->comment('Número de prórrogas solicitadas (máx 3)');
+            $table->timestamp('extension_requested_at')->nullable()->comment('Fecha de última solicitud de prórroga');
+            $table->enum('extension_status', ['none', 'pending', 'approved', 'rejected'])->default('none')->comment('Estado de la prórroga');
             
             $table->timestamps();
             

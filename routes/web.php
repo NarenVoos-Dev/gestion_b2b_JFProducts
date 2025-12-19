@@ -78,6 +78,7 @@ Route::middleware([
         Route::post('/cart/update', [\App\Http\Controllers\Api\CartController::class, 'update'])->name('cart.update');
         Route::delete('/cart/remove/{id}', [\App\Http\Controllers\Api\CartController::class, 'remove'])->name('cart.remove');
         Route::delete('/cart/clear', [\App\Http\Controllers\Api\CartController::class, 'clear'])->name('cart.clear');
+        Route::post('/cart/request-extension', [\App\Http\Controllers\Api\CartController::class, 'requestExtension'])->name('cart.request-extension');
 
         //Pedidos
         Route::post('/pedidos', [PosApiController::class, 'storePedidoB2B'])->name('orders.store');

@@ -62,7 +62,7 @@ class CartController extends Controller
                     'has_tax' => $item->product->has_tax,
                     'image_url' => $item->image_url ?? asset('img/no-image.png'),  // Usar campo guardado
                     'lot_number' => $item->lot_number,
-                    'expiration_date' => $item->expiration_date?->format('Y-m-d'),
+                    'lot_expiration_date' => $item->lot_expiration_date?->format('Y-m-d'),
                     'product_lot_id' => $item->product_lot_id,
                 ];
             }),
@@ -71,6 +71,15 @@ class CartController extends Controller
                 'tax' => round($tax, 2),
                 'total' => round($total, 2),
                 'item_count' => $cartItems->count(),
+            ],
+            'expiration' => [
+                'expires_at' => $cartItems->first()?->expiration_date,
+                'is_expired' => $cartItems->first()?->isExpired() ?? false,
+                'is_expiring_soon' => $cartItems->first()?->isExpiringSoon() ?? false,
+                'can_request_extension' => $cartItems->first()?->canRequestExtension() ?? false,
+                'extension_count' => $cartItems->first()?->extension_count ?? 0,
+                'extension_status' => $cartItems->first()?->extension_status ?? 'none',
+                'max_extensions' => config('cart.max_extensions', 3),
             ]
         ]);
     }
@@ -219,7 +228,11 @@ class CartController extends Controller
                 'laboratory' => $product->laboratory?->name,
                 'product_lot_id' => $lot?->id,
                 'lot_number' => $lot?->lot_number,
-                'expiration_date' => $lot?->expiration_date,
+                'lot_expiration_date' => $lot?->expiration_date,
+                // Sistema de expiración de carrito
+                'expiration_date' => now()->addMinutes(config('cart.expiration_minutes', 2)),
+                'extension_count' => 0,
+                'extension_status' => 'none',
             ]);
         }
 
@@ -372,6 +385,58 @@ class CartController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Lote asignado correctamente',
+        ]);
+    }
+    
+    /**
+     * Solicitar prórroga de carrito
+     */
+    public function requestExtension(Request $request)
+    {
+        $user = Auth::user();
+        
+        $cartItems = CartItem::where('user_id', $user->id)->get();
+        
+        if ($cartItems->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Carrito vacío'
+            ], 404);
+        }
+        
+        // Verificar si puede solicitar prórroga
+        $canRequest = $cartItems->every(fn($item) => $item->canRequestExtension());
+        
+        if (!$canRequest) {
+            $firstItem = $cartItems->first();
+            if ($firstItem->extension_count >= 3) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Has alcanzado el límite de 3 prórrogas'
+                ], 400);
+            }
+            
+            if ($firstItem->extension_status === 'pending') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ya tienes una solicitud de prórroga pendiente'
+                ], 400);
+            }
+        }
+        
+        // Marcar todos los items como prórroga pendiente
+        $cartItems->each(function($item) {
+            $item->update([
+                'extension_requested_at' => now(),
+                'extension_status' => 'pending',
+            ]);
+        });
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Solicitud de prórroga enviada. Espera la aprobación del administrador.',
+            'extension_count' => $cartItems->first()->extension_count,
+            'max_extensions' => config('cart.max_extensions', 3)
         ]);
     }
 }

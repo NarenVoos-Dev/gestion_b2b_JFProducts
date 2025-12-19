@@ -20,13 +20,19 @@ class CartItem extends Model
         'laboratory',
         'product_lot_id',
         'lot_number',
+        'lot_expiration_date',
         'expiration_date',
+        'extension_count',
+        'extension_requested_at',
+        'extension_status',
     ];
 
     protected $casts = [
         'quantity' => 'integer',
         'price' => 'decimal:2',
-        'expiration_date' => 'date',
+        'lot_expiration_date' => 'date',
+        'expiration_date' => 'datetime',
+        'extension_requested_at' => 'datetime',
     ];
 
     /**
@@ -59,5 +65,33 @@ class CartItem extends Model
     public function getSubtotalAttribute(): float
     {
         return $this->quantity * $this->price;
+    }
+    
+    /**
+     * Verificar si el item ha expirado
+     */
+    public function isExpired(): bool
+    {
+        return $this->expiration_date && $this->expiration_date->isPast();
+    }
+    
+    /**
+     * Verificar si puede solicitar prórroga
+     */
+    public function canRequestExtension(): bool
+    {
+        return $this->extension_count < 3 && 
+               $this->extension_status !== 'pending';
+    }
+    
+    /**
+     * Verificar si está por expirar (menos de 30 minutos)
+     */
+    public function isExpiringSoon(): bool
+    {
+        if (!$this->expiration_date) return false;
+        
+        return $this->expiration_date->diffInMinutes(now()) <= 30 &&
+               !$this->isExpired();
     }
 }

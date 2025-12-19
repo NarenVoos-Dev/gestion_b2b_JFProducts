@@ -1,16 +1,16 @@
 <div id="cartPanel" class="fixed right-0 top-0 w-full md:w-[450px] h-full bg-white shadow-2xl translate-x-full transition-transform duration-400 z-[300] flex flex-col">
     
     <!-- Header del Carrito -->
-    <div class="p-6 border-b-2 border-[#0f4db3]/20 flex justify-between items-center bg-gradient-to-r from-[#0f4db3] to-[#028dff] flex-shrink-0">
-        <div class="flex items-center gap-3">
-            <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <div class="p-4 border-b-2 border-[#0f4db3]/20 flex justify-between items-center bg-gradient-to-r from-[#0f4db3] to-[#028dff] flex-shrink-0">
+        <div class="flex items-center gap-2">
+            <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="9" cy="21" r="1"></circle>
                 <circle cx="20" cy="21" r="1"></circle>
                 <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
             </svg>
-            <h3 class="text-2xl font-extrabold text-white">Mi Carrito</h3>
+            <h3 class="text-xl font-extrabold text-white">Mi Carrito</h3>
         </div>
-        <button onclick="closeCart()" class="bg-white/20 hover:bg-white/30 backdrop-blur-md border-none w-10 h-10 rounded-full cursor-pointer text-white text-2xl transition-all duration-300 flex items-center justify-center hover:scale-110">
+        <button onclick="closeCart()" class="bg-white/20 hover:bg-white/30 backdrop-blur-md border-none w-8 h-8 rounded-full cursor-pointer text-white text-xl transition-all duration-300 flex items-center justify-center hover:scale-110">
             ×
         </button>
     </div>
