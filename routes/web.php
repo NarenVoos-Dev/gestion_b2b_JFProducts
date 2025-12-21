@@ -68,6 +68,7 @@ Route::middleware([
     // Rutas de Cuentas por Pagar
     Route::get('/cuentas-pagar', [ClientController::class, 'cuentasPagar'])->name('cuentas.pagar');
     Route::post('/payment/upload', [ClientController::class, 'uploadPaymentProof'])->name('b2b.payment.upload');
+    Route::post('/payment/upload-multiple', [\App\Http\Controllers\MultiplePaymentController::class, 'uploadMultiplePaymentProof'])->name('b2b.payment.upload.multiple');
 
     // --- API interna para el Portal de Clientes (protegida por sesión) ---
     Route::prefix('/api/b2b')->name('api.b2b.')->group(function() {

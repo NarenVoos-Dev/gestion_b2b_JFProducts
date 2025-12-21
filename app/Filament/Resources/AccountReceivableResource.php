@@ -28,6 +28,30 @@ class AccountReceivableResource extends Resource
     protected static ?string $navigationGroup = 'Finanzas';
     
     protected static ?int $navigationSort = 1;
+    
+    public static function getNavigationBadge(): ?string
+    {
+        // Contar facturas únicas que tienen abonos pendientes de aprobación
+        $count = \App\Models\AccountReceivable::whereHas('payments', function ($query) {
+            $query->where('amount', 0);
+        })->count();
+        
+        return $count > 0 ? (string) $count : null;
+    }
+    
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
+    }
+    
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        $count = \App\Models\AccountReceivable::whereHas('payments', function ($query) {
+            $query->where('amount', 0);
+        })->count();
+        
+        return $count > 0 ? "{$count} factura(s) con abonos pendientes de revisión" : null;
+    }
 
     public static function form(Form $form): Form
     {
@@ -127,6 +151,26 @@ class AccountReceivableResource extends Resource
                         'cancelled' => 'Cancelada',
                         default => $state,
                     }),
+                Tables\Columns\TextColumn::make('payment_status')
+                    ->label('Pagos B2B')
+                    ->badge()
+                    ->getStateUsing(function ($record) {
+                        if (!$record || !$record->id) {
+                            return null;
+                        }
+                        
+                        $pendingPayments = \App\Models\AccountPayment::where('account_receivable_id', $record->id)
+                            ->where('amount', 0)
+                            ->count();
+                        
+                        if ($pendingPayments > 0) {
+                            return "Abonado ({$pendingPayments})";
+                        }
+                        return null;
+                    })
+                    ->color('warning')
+                    ->icon('heroicon-o-currency-dollar')
+                    ->placeholder('-'),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Creada')
                     ->dateTime('d/m/Y H:i')

@@ -1042,8 +1042,18 @@
         
         if (!tbody || !pageInfo || !prevBtn || !nextBtn) return;
         
-        // Si no hay lotes
-        if (!lots || lots.length === 0) {
+        // FILTRAR LOTES VENCIDOS - NO MOSTRARLOS
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const activeLots = lots.filter(lot => {
+            const expirationDate = new Date(lot.expiration_date);
+            const isExpired = expirationDate < today;
+            return !isExpired; // Solo lotes NO vencidos
+        });
+        
+        // Si no hay lotes activos
+        if (!activeLots || activeLots.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 py-4">No hay lotes disponibles para este producto</td></tr>';
             pageInfo.textContent = 'Página 0 de 0';
             prevBtn.disabled = true;
@@ -1052,33 +1062,28 @@
         }
         
         // Calcular paginación
-        const totalPages = Math.ceil(lots.length / lotsPerPage);
+        const totalPages = Math.ceil(activeLots.length / lotsPerPage);
         const startIndex = (page - 1) * lotsPerPage;
         const endIndex = startIndex + lotsPerPage;
-        const lotsToShow = lots.slice(startIndex, endIndex);
+        const lotsToShow = activeLots.slice(startIndex, endIndex);
         
         // Renderizar filas
         let html = '';
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
         
         lotsToShow.forEach(lot => {
             const expirationDate = new Date(lot.expiration_date);
-            const isExpired = expirationDate < today;
             const isActive = lot.is_active === true || lot.is_active === 1;
             
             // Determinar badge de estado
             let statusBadge = '';
             if (!isActive) {
                 statusBadge = '<span class="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded font-medium">Inactivo</span>';
-            } else if (isExpired) {
-                statusBadge = '<span class="text-xs bg-red-100 text-red-700 px-2 py-1 rounded font-medium">Vencido</span>';
             } else {
                 statusBadge = '<span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-medium">Activo</span>';
             }
             
             // Determinar si se puede seleccionar
-            const canSelect = isActive && !isExpired && lot.quantity > 0;
+            const canSelect = isActive && lot.quantity > 0;
             
             // Color del stock
             const stockColor = lot.quantity === 0 ? 'text-red-600' : (lot.quantity < 10 ? 'text-amber-600' : 'text-green-600');
@@ -1208,10 +1213,27 @@
                     return;
                 }
                 
-                // Construir HTML de la tabla de lotes
+                // FILTRAR LOTES VENCIDOS
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
                 
+                const activeLots = product.lots.filter(lot => {
+                    const expirationDate = new Date(lot.expiration_date);
+                    const isExpired = expirationDate < today;
+                    return !isExpired; // Solo lotes NO vencidos
+                });
+                
+                if (activeLots.length === 0) {
+                    Swal.fire({
+                        title: 'Sin lotes disponibles',
+                        text: 'Este producto no tiene lotes vigentes disponibles.',
+                        icon: 'info',
+                        confirmButtonColor: '#0f4db3',
+                    });
+                    return;
+                }
+                
+                // Construir HTML de la tabla de lotes
                 let lotsHTML = '<div class="overflow-y-auto" style="max-height: 400px;">';
                 lotsHTML += '<table class="w-full text-sm">';
                 lotsHTML += '<thead class="bg-purple-100 sticky top-0">';
@@ -1225,17 +1247,13 @@
                 lotsHTML += '</thead>';
                 lotsHTML += '<tbody>';
                 
-                product.lots.forEach(lot => {
-                    const expirationDate = new Date(lot.expiration_date);
-                    const isExpired = expirationDate < today;
+                activeLots.forEach(lot => {
                     const isActive = lot.is_active === true || lot.is_active === 1;
-                    const canSelect = isActive && !isExpired && lot.quantity > 0;
+                    const canSelect = isActive && lot.quantity > 0;
                     
                     let statusBadge = '';
                     if (!isActive) {
                         statusBadge = '<span class="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded font-medium">Inactivo</span>';
-                    } else if (isExpired) {
-                        statusBadge = '<span class="text-xs bg-red-100 text-red-700 px-2 py-1 rounded font-medium">Vencido</span>';
                     } else {
                         statusBadge = '<span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-medium">Activo</span>';
                     }

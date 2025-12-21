@@ -284,8 +284,8 @@ $(document).ready(function() {
                             </button>
                     `;
                     
-                    // Mostrar botón de factura solo si está facturado y tiene PDF
-                    if (row.status === 'Facturado' && row.invoice_pdf_path) {
+                    // Mostrar botón de factura si está facturado o finalizado y tiene PDF
+                    if ((row.status === 'Facturado' || row.status === 'Finalizado') && row.invoice_pdf_path) {
                         buttons += `
                             <!-- Ver Factura PDF -->
                             <button onclick="viewInvoicePdf(${row.id})" class="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all" title="Ver Factura PDF">
@@ -397,8 +397,8 @@ function renderOrderDetail(order) {
         </button>
     `;
     
-    // Agregar botón de factura si está facturado y tiene PDF
-    if (order.status === 'Facturado' && order.invoice_pdf_path) {
+    // Agregar botón de factura si está facturado o finalizado y tiene PDF
+    if ((order.status === 'Facturado' || order.status === 'Finalizado') && order.invoice_pdf_path) {
         actionButtons += `
             <!-- Ver Factura PDF -->
             <button onclick="viewInvoicePdf(${order.id})" class="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all" title="Ver Factura PDF">

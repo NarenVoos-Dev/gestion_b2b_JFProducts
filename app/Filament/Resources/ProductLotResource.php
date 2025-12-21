@@ -11,9 +11,11 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Toggle;
 use App\Filament\Imports\LotsImporter;
 use Filament\Tables\Actions\ImportAction;
 use Filament\Tables\Actions\Action;
@@ -84,6 +86,12 @@ class ProductLotResource extends Resource
                     ->label('Costo de Adquisición')
                     ->numeric()
                     ->prefix('$'),
+                    
+                Toggle::make('is_active')
+                    ->label('Lote Activo')
+                    ->helperText('Desactiva este lote para que no aparezca en el portal B2B')
+                    ->default(true)
+                    ->inline(false),
             ]);
     }
 
@@ -97,6 +105,14 @@ class ProductLotResource extends Resource
                 TextColumn::make('cost')->label('Costo')->money('cop')->sortable(),
                 TextColumn::make('quantity')->label('Cantidad')->numeric()->sortable(),
                 TextColumn::make('expiration_date')->label('Vencimiento')->date('d/m/Y')->sortable(),
+                IconColumn::make('is_active')
+                    ->label('Estado')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-check-circle')
+                    ->falseIcon('heroicon-o-x-circle')
+                    ->trueColor('success')
+                    ->falseColor('danger')
+                    ->sortable(),
             ])
             ->defaultSort('expiration_date', 'asc')
             ->filters([

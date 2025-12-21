@@ -381,6 +381,27 @@ class ClientController extends Controller
             'created_by' => $user->id,
         ]);
         
+        // Notificaciones desactivadas - solo badge en menú
+        /*
+        $adminUsers = \App\Models\User::role('admin')->get();
+        $client = \App\Models\Client::find($user->client_id);
+        
+        foreach ($adminUsers as $admin) {
+            \Filament\Notifications\Notification::make()
+                ->title('Nuevo comprobante de pago subido')
+                ->body("{$client->name} ha subido un comprobante para la factura {$account->invoice_number}")
+                ->icon('heroicon-o-document-text')
+                ->iconColor('warning')
+                ->actions([
+                    \Filament\Notifications\Actions\Action::make('review')
+                        ->label('Revisar')
+                        ->url(route('filament.admin.resources.account-receivables.pages.manage-payments', $account))
+                        ->markAsRead()
+                ])
+                ->sendToDatabase($admin);
+        }
+        */
+        
         return back()->with('success', 'Comprobante subido exitosamente. Será revisado por el administrador.');
     }
 }

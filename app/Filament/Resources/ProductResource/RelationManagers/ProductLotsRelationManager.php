@@ -54,8 +54,13 @@ class ProductLotsRelationManager extends RelationManager
                     ->label('Fecha de Vencimiento')
                     ->required()
                     ->native(false)
-                    ->displayFormat('d/m/Y')
-                    ->minDate(now()),
+                    ->displayFormat('d/m/Y'),
+                    
+                Forms\Components\Toggle::make('is_active')
+                    ->label('Lote Activo')
+                    ->helperText('Desactiva este lote para que no aparezca en el portal B2B')
+                    ->default(true)
+                    ->inline(false),
             ]);
     }
 
@@ -126,6 +131,15 @@ class ProductLotsRelationManager extends RelationManager
                     ->dateTime('d/m/Y H:i')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                    
+                Tables\Columns\IconColumn::make('is_active')
+                    ->label('Estado')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-check-circle')
+                    ->falseIcon('heroicon-o-x-circle')
+                    ->trueColor('success')
+                    ->falseColor('danger')
+                    ->sortable(),
             ])
             ->defaultSort('expiration_date', 'asc')
             ->filters([
@@ -136,13 +150,13 @@ class ProductLotsRelationManager extends RelationManager
                     ->preload(),
             ])
             ->headerActions([
-                Tables\Actions\CreateAction::make()
-                    ->label('Nuevo Lote')
-                    ->icon('heroicon-o-plus')
-                    ->mutateFormDataUsing(function (array $data): array {
-                        // El product_id se asigna automáticamente por la relación
-                        return $data;
-                    }),
+                // Botón deshabilitado - Los lotes se crean desde Gestión de Lotes
+                // Tables\Actions\CreateAction::make()
+                //     ->label('Nuevo Lote')
+                //     ->icon('heroicon-o-plus')
+                //     ->mutateFormDataUsing(function (array $data): array {
+                //         return $data;
+                //     }),
             ])
             ->actions([
                 Tables\Actions\EditAction::make()

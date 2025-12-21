@@ -43,7 +43,16 @@ class ManagePayments extends ViewRecord implements HasTable
                     ->formatStateUsing(fn ($state) => '$' . number_format($state, 2))
                     ->color(fn ($record) => $record->amount > 0 ? 'success' : 'warning')
                     ->weight('bold')
-                    ->description(fn ($record) => $record->amount == 0 ? 'Pendiente de aprobación' : null),
+                    ->description(function ($record) {
+                        if ($record->amount == 0) {
+                            // Extraer monto sugerido de las notas
+                            if (preg_match('/Monto sugerido: \$([0-9,\.]+)/', $record->notes, $matches)) {
+                                return 'Pendiente - Sugerido: $' . $matches[1];
+                            }
+                            return 'Pendiente de aprobación';
+                        }
+                        return null;
+                    }),
                 Tables\Columns\TextColumn::make('payment_method')
                     ->label('Método')
                     ->default('-'),
@@ -84,7 +93,7 @@ class ManagePayments extends ViewRecord implements HasTable
                             ->required()
                             ->prefix('$')
                             ->maxValue($this->record->balance)
-                            ->helperText('Saldo pendiente: $' . number_format($this->record->balance, 0)),
+                            ->helperText('Saldo pendiente: $' . number_format($this->record->balance, 2)),
                         Forms\Components\Select::make('payment_method')
                             ->label('Método de Pago')
                             ->options([
@@ -126,6 +135,31 @@ class ManagePayments extends ViewRecord implements HasTable
                             ->body('Pago de $' . number_format($data['amount'], 0) . ' aprobado exitosamente')
                             ->send();
                     }),
+                Tables\Actions\Action::make('reject')
+                    ->label('Rechazar')
+                    ->icon('heroicon-o-x-circle')
+                    ->color('danger')
+                    ->visible(fn ($record) => $record->amount == 0)
+                    ->requiresConfirmation()
+                    ->modalHeading('Rechazar Pago')
+                    ->modalDescription('¿Estás seguro de que deseas rechazar este pago? Esta acción eliminará el registro del pago pendiente.')
+                    ->modalSubmitActionLabel('Sí, Rechazar')
+                    ->form([
+                        Forms\Components\Textarea::make('rejection_reason')
+                            ->label('Motivo del Rechazo (Opcional)')
+                            ->placeholder('Ej: Comprobante ilegible, monto incorrecto, etc.')
+                            ->rows(3),
+                    ])
+                    ->action(function ($record, array $data) {
+                        // Eliminar el pago pendiente
+                        $record->delete();
+                        
+                        Notification::make()
+                            ->warning()
+                            ->title('Pago Rechazado')
+                            ->body('El pago pendiente ha sido eliminado.')
+                            ->send();
+                    }),
             ])
             ->defaultSort('payment_date', 'desc');
     }
@@ -150,7 +184,7 @@ class ManagePayments extends ViewRecord implements HasTable
                         ->required()
                         ->prefix('$')
                         ->maxValue($this->record->balance)
-                        ->helperText('Saldo pendiente: $' . number_format($this->record->balance, 0)),
+                        ->helperText('Saldo pendiente: $' . number_format($this->record->balance, 2)),
                     Forms\Components\Select::make('payment_method')
                         ->label('Método de Pago')
                         ->options([

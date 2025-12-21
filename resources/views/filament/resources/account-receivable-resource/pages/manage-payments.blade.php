@@ -9,15 +9,15 @@
                 </div>
                 <div>
                     <p class="text-sm text-gray-500">NIT</p>
-                    <p class="font-semibold">{{ $record->client->tax_id ?? 'N/A' }}</p>
+                    <p class="font-semibold">{{ $record->client->document ?? 'N/A' }}</p>
                 </div>
                 <div>
                     <p class="text-sm text-gray-500">Monto Total</p>
-                    <p class="font-semibold text-lg">${{ number_format($record->amount, 0) }}</p>
+                    <p class="font-semibold text-lg">${{ number_format($record->amount, 2) }}</p>
                 </div>
                 <div>
                     <p class="text-sm text-gray-500">Saldo Pendiente</p>
-                    <p class="font-semibold text-lg text-orange-600">${{ number_format($record->balance, 0) }}</p>
+                    <p class="font-semibold text-lg text-orange-600">${{ number_format($record->balance, 2) }}</p>
                 </div>
                 <div>
                     <p class="text-sm text-gray-500">Estado</p>
@@ -47,7 +47,7 @@
             <div class="flex justify-between items-center">
                 <span class="text-sm font-medium text-gray-700">Total Pagado:</span>
                 <span class="text-xl font-bold text-green-600">
-                    ${{ number_format($record->payments->sum('amount'), 0) }}
+                    ${{ number_format($record->payments->sum('amount'), 2) }}
                 </span>
             </div>
         </div>
