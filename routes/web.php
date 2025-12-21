@@ -64,6 +64,10 @@ Route::middleware([
     Route::post('/pedidos', [ClientController::class, 'storePedido'])->name('pedidos.store');
     Route::get('/pedidos', [ClientController::class, 'listPedidos'])->name('pedidos.list');
     Route::get('/pedidos/{pedido}', [ClientController::class, 'showPedido'])->name('pedidos.show');
+    
+    // Rutas de Cuentas por Pagar
+    Route::get('/cuentas-pagar', [ClientController::class, 'cuentasPagar'])->name('cuentas.pagar');
+    Route::post('/payment/upload', [ClientController::class, 'uploadPaymentProof'])->name('b2b.payment.upload');
 
     // --- API interna para el Portal de Clientes (protegida por sesión) ---
     Route::prefix('/api/b2b')->name('api.b2b.')->group(function() {
@@ -92,6 +96,11 @@ Route::middleware([
  
 });
 
+// Comprobantes de pago (accesible desde Filament y Portal B2B, fuera del middleware CheckClientAccess)
+Route::get('/pedidos/payment/{payment}/proof', [\App\Http\Controllers\PaymentProofController::class, 'download'])
+    ->middleware(['auth'])
+    ->name('payment.proof.download');
+
 /*
 |--------------------------------------------------------------------------
 | Rutas Administrativas (Para usuarios logueados como Admin)
@@ -105,5 +114,9 @@ Route::middleware([
     
     Route::get('/admin/templates/download-lot-template', [TemplateController::class, 'downloadLotTemplate'])
         ->name('admin.templates.download-lot');
+    
+    // Aprobación de pagos
+    Route::post('/admin/payments/{payment}/approve', [\App\Http\Controllers\PaymentApprovalController::class, 'approve'])
+        ->name('admin.payments.approve');
 
 });

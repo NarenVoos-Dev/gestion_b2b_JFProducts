@@ -21,6 +21,10 @@ class AccountReceivableResource extends Resource
     
     protected static ?string $navigationLabel = 'Cuentas por Cobrar';
     
+    protected static ?string $modelLabel = 'Cuenta por Cobrar';
+    
+    protected static ?string $pluralModelLabel = 'Cuentas por Cobrar';
+    
     protected static ?string $navigationGroup = 'Finanzas';
     
     protected static ?int $navigationSort = 1;
@@ -149,70 +153,88 @@ class AccountReceivableResource extends Resource
                     ->query(fn (Builder $query): Builder => $query->where('due_date', '<', now())->where('status', '!=', 'paid')),
             ])
             ->actions([
-                Tables\Actions\Action::make('registerPayment')
-                    ->label('Registrar Pago')
-                    ->icon('heroicon-o-currency-dollar')
-                    ->color('success')
-                    ->form([
-                        Forms\Components\TextInput::make('amount')
-                            ->label('Monto del Pago')
-                            ->numeric()
-                            ->required()
-                            ->prefix('$')
-                            ->maxValue(fn ($record) => $record->balance),
-                        Forms\Components\Select::make('payment_method')
-                            ->label('Método de Pago')
-                            ->options([
-                                'Efectivo' => 'Efectivo',
-                                'Transferencia' => 'Transferencia',
-                                'Cheque' => 'Cheque',
-                                'Tarjeta' => 'Tarjeta',
-                            ])
-                            ->required(),
-                        Forms\Components\DatePicker::make('payment_date')
-                            ->label('Fecha de Pago')
-                            ->required()
-                            ->default(now()),
-                        Forms\Components\TextInput::make('reference')
-                            ->label('Referencia')
-                            ->maxLength(100),
-                        Forms\Components\Textarea::make('notes')
-                            ->label('Notas')
-                            ->rows(2),
-                    ])
-                    ->action(function (AccountReceivable $record, array $data) {
-                        // Crear el pago
-                        AccountPayment::create([
-                            'account_receivable_id' => $record->id,
-                            'amount' => $data['amount'],
-                            'payment_method' => $data['payment_method'],
-                            'payment_date' => $data['payment_date'],
-                            'reference' => $data['reference'] ?? null,
-                            'notes' => $data['notes'] ?? null,
-                            'created_by' => auth()->id(),
-                        ]);
-                        
-                        // Actualizar balance
-                        $record->balance -= $data['amount'];
-                        
-                        // Actualizar estado
-                        if ($record->balance <= 0) {
-                            $record->status = 'paid';
-                            $record->balance = 0;
-                        } elseif ($record->balance < $record->amount) {
-                            $record->status = 'partial';
-                        }
-                        
-                        $record->save();
-                        
-                        Notification::make()
-                            ->success()
-                            ->title('Pago Registrado')
-                            ->body("Pago de $" . number_format($data['amount'], 0) . " registrado exitosamente")
-                            ->send();
-                    })
-                    ->visible(fn ($record) => !in_array($record->status, ['paid', 'cancelled'])),
-                Tables\Actions\ViewAction::make(),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\Action::make('registerPayment')
+                        ->label('Registrar Pago')
+                        ->icon('heroicon-o-currency-dollar')
+                        ->color('success')
+                        ->form([
+                            Forms\Components\TextInput::make('amount')
+                                ->label('Monto del Pago')
+                                ->numeric()
+                                ->required()
+                                ->prefix('$')
+                                ->maxValue(fn ($record) => $record->balance),
+                            Forms\Components\Select::make('payment_method')
+                                ->label('Método de Pago')
+                                ->options([
+                                    'Efectivo' => 'Efectivo',
+                                    'Transferencia' => 'Transferencia',
+                                    'Cheque' => 'Cheque',
+                                    'Tarjeta' => 'Tarjeta',
+                                ])
+                                ->required(),
+                            Forms\Components\DatePicker::make('payment_date')
+                                ->label('Fecha de Pago')
+                                ->required()
+                                ->default(now()),
+                            Forms\Components\TextInput::make('reference')
+                                ->label('Referencia')
+                                ->maxLength(100),
+                            Forms\Components\Textarea::make('notes')
+                                ->label('Notas')
+                                ->rows(2),
+                            Forms\Components\FileUpload::make('payment_proof_path')
+                                ->label('Comprobante de Pago')
+                                ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'])
+                                ->maxSize(5120) // 5MB
+                                ->disk('local')
+                                ->directory('payment-proofs')
+                                ->downloadable()
+                                ->previewable()
+                                ->helperText('Sube el comprobante de pago (PDF o imagen, máx. 5MB)'),
+                        ])
+                        ->action(function (AccountReceivable $record, array $data) {
+                            // Crear el pago
+                            AccountPayment::create([
+                                'account_receivable_id' => $record->id,
+                                'amount' => $data['amount'],
+                                'payment_method' => $data['payment_method'],
+                                'payment_date' => $data['payment_date'],
+                                'reference' => $data['reference'] ?? null,
+                                'notes' => $data['notes'] ?? null,
+                                'payment_proof_path' => $data['payment_proof_path'] ?? null,
+                                'created_by' => auth()->id(),
+                            ]);
+                            
+                            // Actualizar balance
+                            $record->balance -= $data['amount'];
+                            
+                            // Actualizar estado
+                            if ($record->balance <= 0) {
+                                $record->status = 'paid';
+                                $record->balance = 0;
+                            } elseif ($record->balance < $record->amount) {
+                                $record->status = 'partial';
+                            }
+                            
+                            $record->save();
+                            
+                            Notification::make()
+                                ->success()
+                                ->title('Pago Registrado')
+                                ->body("Pago de $" . number_format($data['amount'], 0) . " registrado exitosamente")
+                                ->send();
+                        })
+                        ->visible(fn ($record) => !in_array($record->status, ['paid', 'cancelled'])),
+                    Tables\Actions\Action::make('viewPayments')
+                        ->label('Ver Pagos')
+                        ->icon('heroicon-o-banknotes')
+                        ->color('info')
+                        ->url(fn ($record) => AccountReceivableResource::getUrl('managePayments', ['record' => $record->id]))
+                        ->visible(fn ($record) => $record->payments()->count() > 0),
+                    Tables\Actions\ViewAction::make(),
+                ]),
             ])
             ->bulkActions([
                 // No permitir eliminación masiva
@@ -230,6 +252,9 @@ class AccountReceivableResource extends Resource
     {
         return [
             'index' => Pages\ListAccountReceivables::route('/'),
+            'create' => Pages\CreateAccountReceivable::route('/create'),
+            'edit' => Pages\EditAccountReceivable::route('/{record}/edit'),
+            'managePayments' => Pages\ManagePayments::route('/{record}/payments'),
         ];
     }
 }

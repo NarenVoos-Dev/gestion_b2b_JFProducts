@@ -22,40 +22,82 @@ class ClientController extends Controller
     {
         $user = Auth::user();
         
-        // Simulación: Buscamos el objeto Client asociado al User logueado.
-        // **IMPORTANTE**: Ajusta esta lógica para encontrar el Client real.
-        $client = Client::find($user->client_id ?? 1); 
-
-        // --- 1. Lógica de Métricas (KPIs) ---
-        // Usaremos datos simulados ya que la conexión real requiere modelos de Pedido.
+        if (!$user->client_id) {
+            abort(403, 'No tienes acceso al portal B2B');
+        }
         
+        $client = Client::findOrFail($user->client_id);
+
+        // --- 1. Estadísticas de Pedidos ---
         $stats = [
-            'total_pendientes' => 24,
-            'total_facturados' => 18,
-            'total_entregados' => 156,
-            'gasto_total' => 2400000,
+            'total_pendientes' => Sale::where('client_id', $client->id)
+                ->where('source', 'b2b')
+                ->where('status', 'Pendiente')
+                ->count(),
+            'total_proceso' => Sale::where('client_id', $client->id)
+                ->where('source', 'b2b')
+                ->where('status', 'Separación')
+                ->count(),
+            'total_entregados' => Sale::where('client_id', $client->id)
+                ->where('source', 'b2b')
+                ->whereIn('status', ['Entregado', 'Finalizado'])
+                ->count(),
+            'gasto_total' => Sale::where('client_id', $client->id)
+                ->where('source', 'b2b')
+                ->sum('total'),
         ];
         
-        // --- 2. Lógica de Gráfico (Simulada) ---
+        // --- 2. Saldo de Cuentas por Cobrar ---
+        $accountsReceivable = \App\Models\AccountReceivable::where('client_id', $client->id)
+            ->where('status', '!=', 'paid')
+            ->get();
+        
+        $accountStats = [
+            'total_deuda' => $accountsReceivable->sum('balance'),
+            'facturas_pendientes' => $accountsReceivable->count(),
+            'facturas_vencidas' => $accountsReceivable->where('status', 'overdue')->count(),
+        ];
+        
+        // --- 3. Gráfico de Gastos Mensuales (últimos 6 meses) ---
+        $monthlyData = Sale::where('client_id', $client->id)
+            ->where('source', 'b2b')
+            ->where('date', '>=', now()->subMonths(6))
+            ->selectRaw('DATE_FORMAT(date, "%Y-%m") as month, SUM(total) as total')
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get();
+        
         $chartData = [
-            'labels' => ['Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre', 'Enero'],
-            'data' => [1800000, 2100000, 1950000, 2300000, 2150000, 2400000],
+            'labels' => $monthlyData->map(fn($item) => Carbon::parse($item->month . '-01')->format('M Y'))->toArray(),
+            'data' => $monthlyData->pluck('total')->toArray(),
         ];
 
-        // --- 3. Lógica de Últimos Pedidos (Simulada) ---
-        // NOTA: En la realidad, esto sería $client->sales()->latest()->take(3)->get();
-        $latestOrders = collect([
-            (object)['id' => 101, 'date' => Carbon::parse('2024-01-15'), 'total' => 45200, 'status' => 'Entregado'],
-            (object)['id' => 102, 'date' => Carbon::parse('2024-01-18'), 'total' => 32800, 'status' => 'Facturado'],
-            (object)['id' => 103, 'date' => Carbon::parse('2024-01-22'), 'total' => 67500, 'status' => 'Pendiente'],
-        ]);
+        // --- 4. Últimos Pedidos ---
+        $latestOrders = Sale::where('client_id', $client->id)
+            ->where('source', 'b2b')
+            ->orderBy('date', 'desc')
+            ->take(5)
+            ->get();
+        
+        // --- 5. Estadísticas de Crédito ---
+        $creditStats = $client->getCreditStats();
+        
+        // Próximo vencimiento
+        $nextDueDate = \App\Models\AccountReceivable::where('client_id', $client->id)
+            ->where('status', '!=', 'paid')
+            ->whereNotNull('due_date')
+            ->orderBy('due_date', 'asc')
+            ->value('due_date');
 
         return view('dashboard', [
             'user' => $user,
             'client' => $client,
             'stats' => $stats,
+            'accountStats' => $accountStats,
             'chartData' => $chartData,
             'latestOrders' => $latestOrders,
+            'creditStats' => $creditStats,
+            'nextDueDate' => $nextDueDate,
         ]);
     }
 
@@ -278,5 +320,67 @@ class ClientController extends Controller
             ->get();
         
         return view('client.pedidos', compact('pedidos'));
+    }
+    
+    /**
+     * Mostrar cuentas por pagar del cliente
+     */
+    public function cuentasPagar()
+    {
+        $user = Auth::user();
+        $client = Client::find($user->client_id);
+        
+        if (!$client) {
+            abort(403, 'Cliente no encontrado');
+        }
+        
+        // Obtener cuentas por cobrar del cliente (pendientes y parciales)
+        $accounts = \App\Models\AccountReceivable::where('client_id', $client->id)
+            ->whereIn('status', ['pending', 'partial'])
+            ->with(['sale', 'payments'])
+            ->orderBy('due_date', 'asc')
+            ->paginate(10);
+        
+        // Calcular saldo total
+        $totalBalance = \App\Models\AccountReceivable::where('client_id', $client->id)
+            ->whereIn('status', ['pending', 'partial'])
+            ->sum('balance');
+        
+        return view('client.cuentas-pagar', compact('accounts', 'totalBalance'));
+    }
+    
+    /**
+     * Subir comprobante de pago
+     */
+    public function uploadPaymentProof(Request $request)
+    {
+        $request->validate([
+            'account_id' => 'required|exists:accounts_receivable,id',
+            'payment_proof' => 'required|file|mimes:pdf,jpg,jpeg,png|max:5120' // 5MB
+        ]);
+        
+        $user = Auth::user();
+        $account = \App\Models\AccountReceivable::findOrFail($request->account_id);
+        
+        // Verificar que la cuenta pertenece al cliente
+        if ($account->client_id !== $user->client_id) {
+            return back()->with('error', 'No tienes permiso para subir comprobantes a esta cuenta');
+        }
+        
+        // Guardar archivo
+        $path = $request->file('payment_proof')->store('payment-proofs', 'local');
+        
+        // Crear registro de pago pendiente de aprobación
+        \App\Models\AccountPayment::create([
+            'account_receivable_id' => $account->id,
+            'amount' => 0, // El admin lo completará
+            'payment_method' => 'Transferencia',
+            'payment_date' => now(),
+            'payment_proof_path' => $path,
+            'notes' => 'Comprobante subido por cliente - Pendiente de verificación',
+            'created_by' => $user->id,
+        ]);
+        
+        return back()->with('success', 'Comprobante subido exitosamente. Será revisado por el administrador.');
     }
 }

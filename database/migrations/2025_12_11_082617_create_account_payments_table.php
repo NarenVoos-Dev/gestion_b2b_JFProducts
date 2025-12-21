@@ -19,6 +19,7 @@ return new class extends Migration
             $table->date('payment_date');
             $table->string('reference', 100)->nullable();
             $table->text('notes')->nullable();
+            $table->string('payment_proof_path')->nullable()->comment('Ruta del comprobante de pago (PDF/imagen)');
             $table->foreignId('created_by')->nullable()->constrained('users')->onDelete('set null');
             $table->timestamps();
             

@@ -49,13 +49,13 @@ class Client extends Model
     }
 
     /**
-     * Calcula la deuda actual del cliente sumando el total de sus ventas pendientes.
+     * Calcula la deuda actual del cliente sumando el saldo pendiente de cuentas por cobrar.
      */
     public function getCurrentDebt(): float
     {
-        return $this->sales()
-        ->where('status', 'Pendiente')
-        ->sum('pending_amount');
+        return \App\Models\AccountReceivable::where('client_id', $this->id)
+            ->where('status', '!=', 'paid')
+            ->sum('balance');
     }
 
     // Lógica para verificar si puede comprar a crédito

@@ -143,7 +143,7 @@ class SaleResource extends Resource
         ->columns([
             Tables\Columns\TextColumn::make('id')
                 ->label('N° Pedido')
-                ->formatStateUsing(fn ($state) => '#' . str_pad($state, 6, '0', STR_PAD_LEFT))
+                ->formatStateUsing(fn ($record) => $record->formatted_order_number)
                 ->sortable()
                 ->searchable(),
             Tables\Columns\TextColumn::make('client.name')

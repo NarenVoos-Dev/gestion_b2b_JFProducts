@@ -39,6 +39,14 @@ class Sale extends Model
         'invoiced_at' => 'datetime',
     ];
 
+    /**
+     * Accessor para obtener el número de pedido formateado con prefijo PW
+     */
+    public function getFormattedOrderNumberAttribute(): string
+    {
+        return 'PW' . str_pad($this->id, 5, '0', STR_PAD_LEFT);
+    }
+
     public function location(): BelongsTo
     {
         return $this->belongsTo(Location::class);

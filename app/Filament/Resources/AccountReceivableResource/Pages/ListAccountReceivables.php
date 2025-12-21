@@ -13,7 +13,9 @@ class ListAccountReceivables extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make(),
+            // CreateAction deshabilitado - Las cuentas se crean automáticamente desde ventas
+            // Actions\CreateAction::make()
+            //     ->icon('heroicon-o-plus-circle'),
         ];
     }
 }

@@ -3,7 +3,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Pedido de Venta #{{ $sale->id }}</title>
+    <title>Pedido de Venta {{ $sale->formatted_order_number }}</title>
     <style>
         body { font-family: 'Helvetica', sans-serif; font-size: 12px; }
         .container { width: 100%; margin: 0 auto; }
@@ -33,7 +33,7 @@
             </div>
             <div class="invoice-details">
                 <h2>PEDIDO DE VENTA</h2>
-                <p><strong>Pedido #:</strong> {{ str_pad($sale->id, 6, '0', STR_PAD_LEFT) }}</p>
+                <p><strong>Pedido #:</strong> {{ $sale->formatted_order_number }}</p>
                 <p><strong>Fecha:</strong> {{ \Carbon\Carbon::parse($sale->date)->format('d/m/Y H:i') }}</p>
             </div>
         </div>

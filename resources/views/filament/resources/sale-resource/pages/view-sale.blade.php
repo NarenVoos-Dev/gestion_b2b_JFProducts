@@ -2,7 +2,7 @@
     <div class="space-y-6">
         {{-- Sección de Información del Cliente y la Venta --}}
         <div class="p-6 bg-white rounded-xl shadow-sm dark:bg-gray-800">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Detalles de la Venta #{{ $record->id }}</h2>
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Detalles de la Venta {{ $record->formatted_order_number }}</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <p class="text-sm text-gray-500 dark:text-gray-400">Cliente</p>
