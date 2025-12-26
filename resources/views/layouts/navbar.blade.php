@@ -18,13 +18,13 @@
     <!-- Botones de Utilidad -->
     <div class="flex items-center gap-4">
         
-        <!-- Botón de Notificaciones -->
+        <!-- Botón de Notificaciones 
         <button class="p-2 rounded-lg transition-all duration-300 text-gray-600 hover:bg-[#0f4db3]/10 hover:text-[#0f4db3] hidden sm:block">
             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
                 <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
             </svg>
-        </button>
+        </button>-->
         
         <!-- Botón de Carrito -->
         <div onclick="toggleCart()" 

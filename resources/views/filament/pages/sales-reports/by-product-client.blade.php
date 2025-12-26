@@ -1,0 +1,49 @@
+{{-- Reporte de Ventas por Producto x Cliente --}}
+<div class="rounded-lg bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
+    <div class="overflow-x-auto">
+        <table class="w-full table-auto divide-y divide-gray-200 dark:divide-white/5">
+            <thead class="bg-gray-50 dark:bg-white/5">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cliente</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Veces Comprado</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Cantidad Total</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Monto Total</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Precio Promedio</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200 dark:bg-gray-900 dark:divide-white/5">
+                @forelse($this->getSalesByProductClientData() as $item)
+                    <tr class="hover:bg-gray-50 dark:hover:bg-white/5">
+                        <td class="px-4 py-3 text-sm text-gray-900 dark:text-white">{{ $item->client_name }}</td>
+                        <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{{ $item->product_name }}</td>
+                        <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">{{ $item->times_purchased }}</td>
+                        <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">{{ number_format($item->total_quantity, 2) }}</td>
+                        <td class="px-4 py-3 text-sm text-right font-medium text-gray-900 dark:text-white">${{ number_format($item->total_amount, 2) }}</td>
+                        <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">${{ number_format($item->avg_price, 2) }}</td>
+                    </tr>
+                @empty
+                    <tr><td colspan="6" class="px-4 py-8 text-center text-sm text-gray-500">No hay datos</td></tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+    
+    @if($this->getSalesByProductClientData()->count() > 0)
+        <div class="px-4 py-3 bg-gray-50 dark:bg-white/5 border-t border-gray-200 dark:border-white/5">
+            <div class="flex justify-between items-center text-sm">
+                <span class="text-gray-700 dark:text-gray-300">
+                    Total de registros: <strong>{{ $this->getSalesByProductClientData()->count() }}</strong>
+                </span>
+                <div class="flex gap-2">
+                    <x-filament::button wire:click="openExportModal('by_product_client')" color="success" size="sm" icon="heroicon-o-document-arrow-down">
+                        Exportar Excel
+                    </x-filament::button>
+                    <x-filament::button wire:click="exportToPDF('by_product_client')" color="danger" size="sm" icon="heroicon-o-document-arrow-down">
+                        Exportar PDF
+                    </x-filament::button>
+                </div>
+            </div>
+        </div>
+    @endif
+</div>
