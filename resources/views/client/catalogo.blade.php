@@ -74,9 +74,40 @@
     </div>
 </div>
 
+@if(isset($no_price_list) && $no_price_list)
+<!-- Mensaje de No Lista de Precios -->
+<div class="flex flex-col items-center justify-center py-20 px-4">
+    <div class="text-center max-w-2xl">
+        <!-- Icono -->
+        <div class="mb-6">
+            <svg class="h-20 w-20 text-[#0f4db3] mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+        </div>
+        
+        <!-- Título -->
+        <h2 class="text-3xl font-bold text-[#0f4db3] mb-4">
+            No tienes lista de precios asignada
+        </h2>
+        
+        <!-- Descripción -->
+        <p class="text-lg text-gray-600 mb-6">
+            Para visualizar el catálogo de productos y realizar pedidos, necesitas tener una lista de precios asignada por el administrador.
+        </p>
+        
+        <!-- Acción sugerida -->
+        <div class="bg-blue-50 rounded-lg p-4 inline-block">
+            <p class="text-sm text-[#0f4db3] font-medium">
+                Contacta al administrador para que te asigne una lista de precios
+            </p>
+        </div>
+    </div>
+</div>
+@else
 <!-- Grid de Productos -->
 <div id="productsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
 </div>
+@endif
 @endsection
 @push('scripts')
 <script>

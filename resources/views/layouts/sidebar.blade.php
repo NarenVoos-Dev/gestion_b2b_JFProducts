@@ -2,7 +2,7 @@
 <div id="sidebarOverlay" onclick="closeSidebar()" class="fixed inset-0 bg-black/40 opacity-0 invisible transition-all duration-400 z-40"></div>
 
 <!-- Sidebar: W-64 compactado -->
-<nav id="sidebar" class="fixed left-0 top-0 w-64 h-full bg-white/95 backdrop-blur-xl shadow-2xl -translate-x-full transition-transform duration-400 z-50 pt-24">
+<nav id="sidebar" class="fixed left-0 top-0 w-64 h-full bg-white/95 backdrop-blur-xl shadow-2xl -translate-x-full transition-transform duration-400 z-50 pt-16">
     <div class="p-4 text-center border-b border-[#028dff]/10">
         <!-- Logo/Avatar -->
         <div class="w-16 h-16 rounded-full bg-gradient-to-br from-[#0f4db3] to-[#028dff] flex items-center justify-center text-white font-bold text-lg mx-auto mb-3 shadow-xl shadow-[#0f4db3]/30">
@@ -57,6 +57,10 @@
                 <a href="#" onclick="toggleCart(); return false;" class="flex items-center gap-3 px-4 py-2 text-gray-600 transition-all duration-300 text-sm font-medium hover:bg-[#0f4db3]/5 hover:text-[#0f4db3] hover:translate-x-1">
                     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
                     Ver Carrito
+                </a>
+                <a href="{{ route('profile') }}" class="flex items-center gap-3 px-4 py-2 text-gray-600 transition-all duration-300 text-sm font-medium hover:bg-[#0f4db3]/5 hover:text-[#0f4db3] hover:translate-x-1">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    Mi Perfil
                 </a>
             </div>
         </div>

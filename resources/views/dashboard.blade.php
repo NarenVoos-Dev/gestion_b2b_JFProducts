@@ -39,6 +39,46 @@
             </a>
         </div>
 
+        <!-- Widget de Completitud del Perfil -->
+        @if($profileCompletion < 100)
+        <div class="bg-white rounded-xl p-6 shadow-lg border border-gray-100 mb-6">
+            <div class="flex items-start justify-between mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="bg-gradient-to-br from-[#0f4db3] to-[#028dff] p-3 rounded-lg">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-800">Completa tu Perfil</h3>
+                        <p class="text-sm text-gray-600">{{ number_format($profileCompletion, 0) }}% completado</p>
+                    </div>
+                </div>
+                <a href="{{ route('profile') }}" class="px-4 py-2 bg-gradient-to-r from-[#0f4db3] to-[#028dff] text-white text-sm font-semibold rounded-lg hover:shadow-lg transition-all duration-300">
+                    Completar Ahora →
+                </a>
+            </div>
+            
+            <!-- Barra de Progreso -->
+            <div class="relative w-full h-3 bg-gray-200 rounded-full overflow-hidden mb-3">
+                <div class="absolute top-0 left-0 h-full bg-gradient-to-r from-[#0f4db3] to-[#028dff] transition-all duration-500 rounded-full" style="width: {{ $profileCompletion }}%"></div>
+            </div>
+            
+            <!-- Campos Faltantes -->
+            <div class="flex flex-wrap gap-2">
+                @if(!$profileFields['phone1'])
+                    <span class="px-3 py-1 bg-red-50 text-red-600 text-xs font-medium rounded-full"> Teléfono Principal</span>
+                @endif
+                @if(!$profileFields['phone2'])
+                    <span class="px-3 py-1 bg-yellow-50 text-yellow-600 text-xs font-medium rounded-full"> Teléfono Secundario</span>
+                @endif
+                @if(!$profileFields['address'])
+                    <span class="px-3 py-1 bg-yellow-50 text-yellow-600 text-xs font-medium rounded-full"> Dirección</span>
+                @endif
+            </div>
+        </div>
+        @endif
+
 
         <!-- KPI Cards (Métricas de Pedidos) -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

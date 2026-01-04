@@ -30,6 +30,11 @@ Route::get('/registro-exitoso', function () {
     return view('registered');
 })->name('registered')->middleware('guest');
 
+Route::get('/registration-pending', function () {
+    return view('auth.registration-pending');
+})->name('registration.pending')->middleware('guest');
+
+
 /*
 |--------------------------------------------------------------------------
 | Rutas del Portal de Clientes (B2B)
@@ -68,6 +73,10 @@ Route::middleware([
     // Rutas de Cuentas por Pagar
     Route::get('/cuentas-pagar', [ClientController::class, 'cuentasPagar'])->name('cuentas.pagar');
     Route::post('/payment/upload', [ClientController::class, 'uploadPaymentProof'])->name('b2b.payment.upload');
+    
+    // Ruta de Perfil
+    Route::get('/perfil', [ClientController::class, 'profile'])->name('profile');
+    Route::put('/perfil', [ClientController::class, 'updateProfile'])->name('profile.update');
     Route::post('/payment/upload-multiple', [\App\Http\Controllers\MultiplePaymentController::class, 'uploadMultiplePaymentProof'])->name('b2b.payment.upload.multiple');
 
     // --- API interna para el Portal de Clientes (protegida por sesión) ---

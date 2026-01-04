@@ -37,27 +37,21 @@ class FortifyServiceProvider extends ServiceProvider
             return view('auth.register');
         });
 
-        // Usar tu acción personalizada para crear clientes B2B
-        Fortify::createUsersUsing(CreateNewClient::class);
+        // Usar la acción personalizada para crear clientes B2B
+        Fortify::createUsersUsing(CreateNewUser::class);
 
-        // CORRECCIÓN: Redirigir después del registro usando la ruta directamente
-        Fortify::redirects('register', '/registro-exitoso'); 
+        // Redirigir después del registro a la vista de pendiente
+        Fortify::redirects('register', '/registration-pending'); 
 
         // IMPORTANTE: Validar estado del usuario en el login
         Fortify::authenticateUsing(function (Request $request) {
             $user = \App\Models\User::where('email', $request->email)->first();
 
             if ($user && Hash::check($request->password, $user->password)) {
-                // Verificar si el usuario está en estado 'pendiente' o 'inactivo'
-                if ($user->estado === 'pendiente') {
+                // Verificar si el usuario está inactivo (pendiente de aprobación)
+                if (!$user->is_active) {
                     throw ValidationException::withMessages([
-                        'email' => ['Tu cuenta está pendiente de aprobación por el administrador.'],
-                    ]);
-                }
-
-                if ($user->estado === 'inactivo') {
-                    throw ValidationException::withMessages([
-                        'email' => ['Tu cuenta ha sido desactivada. Contacta al administrador.'],
+                        'email' => ['Tu cuenta está pendiente de aprobación. Recibirás un correo cuando sea activada.'],
                     ]);
                 }
 

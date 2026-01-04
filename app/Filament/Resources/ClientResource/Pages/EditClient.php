@@ -89,11 +89,12 @@ class EditClient extends EditRecord
                 'email' => $record->email,
                 'client_id' => $record->id,
                 'password' => Hash::make($password),
+                'is_active' => true, // IMPORTANTE: Activar el usuario
                 'estado' => 'activo', 
             ]);
 
             // Asignar el rol 'cliente' si usas Spatie Permissions
-            // $user->assignRole('cliente'); 
+            $user->assignRole('cliente'); 
 
             Notification::make()
                 ->title('Cliente Activado y Usuario Creado')
@@ -102,13 +103,24 @@ class EditClient extends EditRecord
                 ->send();
         }
         
-        // Si se desactiva el cliente, actualizar el estado del usuario a 'inactivo'
+        // Si el cliente ya tiene usuario y se está activando, activar también el usuario
+        if ($record->is_active && $record->user) {
+            $record->user->update([
+                'is_active' => true,
+                'estado' => 'activo'
+            ]);
+        }
+        
+        // Si se desactiva el cliente, desactivar también el usuario
         if (!$record->is_active && $record->user) {
-            $record->user->update(['estado' => 'inactivo']);
+            $record->user->update([
+                'is_active' => false,
+                'estado' => 'inactivo'
+            ]);
             
             Notification::make()
                 ->title('Acceso Desactivado')
-                ->body('El usuario de acceso ha sido marcado como "inactivo".')
+                ->body('El usuario de acceso ha sido desactivado.')
                 ->warning()
                 ->send();
         }

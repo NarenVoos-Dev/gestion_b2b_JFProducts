@@ -89,6 +89,17 @@ class ClientController extends Controller
             ->orderBy('due_date', 'asc')
             ->value('due_date');
 
+        // --- Completitud del Perfil ---
+        $profileFields = [
+            'phone1' => !empty($client->phone1),
+            'phone2' => !empty($client->phone2),
+            'address' => !empty($client->address),
+        ];
+        
+        $completedFields = count(array_filter($profileFields));
+        $totalFields = count($profileFields);
+        $profileCompletion = ($completedFields / $totalFields) * 100;
+
         return view('dashboard', [
             'user' => $user,
             'client' => $client,
@@ -98,6 +109,8 @@ class ClientController extends Controller
             'latestOrders' => $latestOrders,
             'creditStats' => $creditStats,
             'nextDueDate' => $nextDueDate,
+            'profileCompletion' => $profileCompletion,
+            'profileFields' => $profileFields,
         ]);
     }
 
@@ -124,8 +137,20 @@ class ClientController extends Controller
             'price_list_percentage' => $client->priceList->percentage ?? 0
         ]);
 
-        // Obtener porcentaje de la lista de precios del cliente (0 si no tiene)
-        $pricePercentage = $client->priceList ? $client->priceList->percentage : 0;
+        // VALIDACIÓN: Si el cliente NO tiene lista de precios, mostrar mensaje
+        if (!$client->priceList) {
+            Log::warning('Cliente sin lista de precios asignada', ['client_id' => $client->id]);
+            
+            $categories = collect([]);
+            $products = collect([]);
+            $cartCount = count(session()->get('b2b_cart', []));
+            
+            return view('client.catalogo', compact('categories', 'client', 'cartCount', 'products'))
+                ->with('no_price_list', true);
+        }
+
+        // Obtener porcentaje de la lista de precios del cliente
+        $pricePercentage = $client->priceList->percentage;
 
         // 1. Buscamos la bodega designada para el catálogo B2B
         $b2bLocation = Location::where('is_b2b_warehouse', true)->first();
@@ -165,47 +190,51 @@ class ClientController extends Controller
                             ->where('location_id', $b2bLocation->id)
                             ->where('quantity', '>', 0)
                             ->orderBy('expiration_date', 'asc')
-                            ->get(['lot_number', 'quantity', 'expiration_date', 'cost']);
-                        
-                        // Obtener el costo del lote MÁS CARO (mayor valor) que tenga cost > 0
-                        $maxCost = $lots->where('cost', '>', 0)->max('cost') ?? 0;
+                            ->get(['lot_number', 'quantity', 'expiration_date']);
                         
                         // Convertir a array SIN aplicar porcentaje
                         $productData = $product->toArray();
                         $productData['lots'] = $lots->toArray();
                         $productData['stock_in_location'] = $stockInLocation;
-                        $productData['base_cost'] = $maxCost; // Costo del lote más caro
+                        $productData['base_price'] = $product->price; // USAR PRECIO DE VENTA, NO COSTO
                         
                         return $productData;
                     });
             });
             
-            // 3. Aplicar porcentaje DESPUÉS del caché (personalizado por cliente)
-            $products = $productsBase->map(function ($productData) use ($pricePercentage) {
-                $baseCost = $productData['base_cost'] ?? 0;
+            // 3. Aplicar porcentaje de lista de precios DESPUÉS del caché (personalizado por cliente)
+            $products = $productsBase->map(function ($productData) use ($pricePercentage, $client) {
+                $basePrice = $productData['base_price'] ?? 0;
                 $priceRegulated = $productData['price_regulated_reg'] ?? null;
                 
-                // Fórmula correcta de Markup: Precio = Base / (1 - %/100)
-                // Ejemplo: Si base = 10,000 y % = 20, entonces: 10,000 / (1 - 0.20) = 10,000 / 0.80 = 12,500
-                if ($pricePercentage >= 100) {
-                    // Evitar división por cero o negativo
-                    $priceWithIncrease = $baseCost;
+                // Si el cliente tiene lista de precios, aplicar el ajuste
+                if ($client->priceList) {
+                    $priceListType = $client->priceList->type; // 'markup' o 'discount'
+                    
+                    if ($priceListType === 'discount') {
+                        // Descuento: Precio = Base * (1 - %/100)
+                        $finalPrice = $basePrice * (1 - ($pricePercentage / 100));
+                    } else {
+                        // Markup (aumento): Precio = Base * (1 + %/100)
+                        $finalPrice = $basePrice * (1 + ($pricePercentage / 100));
+                    }
                 } else {
-                    $priceWithIncrease = $baseCost / (1 - ($pricePercentage / 100));
+                    // Sin lista de precios, usar precio base
+                    $finalPrice = $basePrice;
                 }
                 
                 // VALIDACIÓN: Si supera el precio regulado, establecer en regulado - 1000
-                if ($priceRegulated && $priceWithIncrease > $priceRegulated) {
+                if ($priceRegulated && $finalPrice > $priceRegulated) {
                     $finalPrice = $priceRegulated - 1000;
                     $productData['price_capped'] = true; // Indicador de que se aplicó tope
                 } else {
-                    $finalPrice = $priceWithIncrease;
                     $productData['price_capped'] = false;
                 }
                 
                 $productData['price'] = round($finalPrice, 2);
-                $productData['base_price'] = $baseCost; // Para referencia
+                $productData['original_price'] = $basePrice; // Para referencia
                 $productData['price_percentage'] = $pricePercentage;
+                $productData['price_list_type'] = $client->priceList->type ?? null;
                 $productData['price_regulated'] = $priceRegulated; // Para referencia
                 
                 return $productData;
@@ -346,7 +375,13 @@ class ClientController extends Controller
             ->whereIn('status', ['pending', 'partial'])
             ->sum('balance');
         
-        return view('client.cuentas-pagar', compact('accounts', 'totalBalance'));
+        // Obtener métodos de pago activos de la empresa
+        $paymentMethods = \App\Models\BusinessPaymentMethod::where('business_id', 1)
+            ->where('is_active', true)
+            ->orderBy('display_order')
+            ->get();
+        
+        return view('client.cuentas-pagar', compact('accounts', 'totalBalance', 'paymentMethods'));
     }
     
     /**
@@ -403,5 +438,67 @@ class ClientController extends Controller
         */
         
         return back()->with('success', 'Comprobante subido exitosamente. Será revisado por el administrador.');
+    }
+
+    /**
+     * Mostrar formulario de perfil del cliente
+     */
+    public function profile()
+    {
+        $user = auth()->user();
+        
+        if (!$user->client_id) {
+            abort(403, 'Acceso no autorizado');
+        }
+
+        $client = \App\Models\Client::findOrFail($user->client_id);
+        $cartCount = count(session()->get('b2b_cart', []));
+
+        return view('client.profile', compact('client', 'cartCount'));
+    }
+
+    /**
+     * Actualizar perfil del cliente
+     */
+    public function updateProfile(Request $request)
+    {
+        $user = auth()->user();
+        
+        if (!$user->client_id) {
+            abort(403, 'Acceso no autorizado');
+        }
+
+        $client = \App\Models\Client::findOrFail($user->client_id);
+
+        // Validar datos
+        $validated = $request->validate([
+            'phone1' => ['required', 'string', 'max:20'],
+            'phone2' => ['nullable', 'string', 'max:20'],
+            'address' => ['nullable', 'string', 'max:255'],
+            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
+        ], [
+            'phone1.required' => 'El teléfono principal es obligatorio.',
+            'phone1.max' => 'El teléfono principal no puede tener más de 20 caracteres.',
+            'phone2.max' => 'El teléfono secundario no puede tener más de 20 caracteres.',
+            'address.max' => 'La dirección no puede tener más de 255 caracteres.',
+            'password.min' => 'La contraseña debe tener al menos 8 caracteres.',
+            'password.confirmed' => 'Las contraseñas no coinciden.',
+        ]);
+
+        // Actualizar datos del cliente
+        $client->update([
+            'phone1' => $validated['phone1'],
+            'phone2' => $validated['phone2'] ?? null,
+            'address' => $validated['address'] ?? null,
+        ]);
+
+        // Actualizar contraseña si se proporcionó
+        if (!empty($validated['password'])) {
+            $user->update([
+                'password' => Hash::make($validated['password']),
+            ]);
+        }
+
+        return back()->with('success', 'Perfil actualizado exitosamente.');
     }
 }

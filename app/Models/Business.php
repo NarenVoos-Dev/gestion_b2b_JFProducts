@@ -69,4 +69,12 @@ class Business extends Model
     {
         return $this->hasMany(Sale::class);
     }
+
+    /**
+     * Un negocio tiene muchos métodos de pago.
+     */
+    public function paymentMethods()
+    {
+        return $this->hasMany(BusinessPaymentMethod::class);
+    }
 }

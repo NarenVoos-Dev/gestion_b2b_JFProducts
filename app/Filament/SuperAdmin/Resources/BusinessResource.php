@@ -3,6 +3,7 @@
 namespace App\Filament\SuperAdmin\Resources;
 
 use App\Filament\SuperAdmin\Resources\BusinessResource\Pages;
+use App\Filament\SuperAdmin\Resources\BusinessResource\RelationManagers;
 use App\Models\Business;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -33,7 +34,7 @@ class BusinessResource extends Resource
         return $table->columns([
             Tables\Columns\TextColumn::make('name')->searchable(),
             Tables\Columns\IconColumn::make('is_active')->label('Activo')->boolean(), 
-            Tables\Columns\IconColumn::make('has_pos_access')->label('POS')->boolean(), // <-- AÑADIR{cm}
+            Tables\Columns\IconColumn::make('has_pos_access')->label('POS')->boolean(),
             Tables\Columns\TextColumn::make('license_expires_at')->label('Vencimiento')->date(),
         ])->actions([Tables\Actions\EditAction::make()]);
     }
@@ -41,5 +42,12 @@ class BusinessResource extends Resource
     public static function getPages(): array
     {
         return ['index' => Pages\ListBusinesses::route('/'), 'edit' => Pages\EditBusiness::route('/{record}/edit')];
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            RelationManagers\PaymentMethodsRelationManager::class,
+        ];
     }
 }
