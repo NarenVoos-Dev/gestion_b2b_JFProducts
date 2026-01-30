@@ -36,7 +36,7 @@ class CreateNewUser implements CreatesNewUsers
             'password' => $this->passwordRules(),
             'phone1' => ['nullable', 'string', 'max:20'],
             'address' => ['nullable', 'string', 'max:255'],
-            'terms' => Jetstream::hasTermsAndPrivacyPolicyFeature() ? ['accepted', 'required'] : '',
+            'terms' => ['accepted', 'required'],
         ], [
             // Mensajes personalizados
             'document.unique' => 'Este número de documento ya está registrado. Si ya tienes una cuenta, inicia sesión.',
@@ -62,6 +62,9 @@ class CreateNewUser implements CreatesNewUsers
             'is_active' => false, // Pendiente de aprobación
             'credit_limit' => 0,
             'price_list_id' => null, // El admin asignará la lista de precios
+            'terms_accepted' => true,
+            'terms_accepted_at' => now(),
+            'terms_accepted_ip' => request()->ip(),
         ]);
 
         // Crear el usuario pero inactivo hasta aprobación

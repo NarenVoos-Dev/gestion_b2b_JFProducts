@@ -221,7 +221,71 @@ class ClientResource extends Resource
                                         'required' => 'Debe registrar al menos un numero de telefono.',
                                     ])
                                     ->autocomplete('new-password'),
-                            ])
+                            ]),
+
+                        Forms\Components\Tabs\Tab::make('Términos y Condiciones')
+                            ->schema([
+                                Forms\Components\Placeholder::make('terms_info')
+                                    ->label('Estado de Aceptación de Términos')
+                                    ->content(function (?Client $record, string $operation): string {
+                                        if ($operation === 'create' || $record === null) {
+                                            return 'La aceptación de términos se registrará cuando el cliente complete su registro.';
+                                        }
+                                        
+                                        if (!$record->terms_accepted) {
+                                            return '❌ Este cliente NO ha aceptado los términos y condiciones.';
+                                        }
+                                        
+                                        return '✅ Este cliente ha aceptado los términos y condiciones.';
+                                    })
+                                    ->columnSpanFull(),
+                                
+                                Forms\Components\Toggle::make('terms_accepted')
+                                    ->label('Términos Aceptados')
+                                    ->disabled()
+                                    ->dehydrated(false)
+                                    ->default(fn (?Client $record): bool => $record?->terms_accepted ?? false)
+                                    ->hiddenOn('create'),
+                                
+                                Forms\Components\TextInput::make('terms_accepted_at')
+                                    ->label('Fecha y Hora de Aceptación')
+                                    ->disabled()
+                                    ->dehydrated(false)
+                                    ->formatStateUsing(fn (?Client $record): string => 
+                                        $record && $record->terms_accepted_at 
+                                            ? $record->terms_accepted_at->format('d/m/Y H:i:s') 
+                                            : 'N/A'
+                                    )
+                                    ->hiddenOn('create')
+                                    ->columnSpan(1),
+                                
+                                Forms\Components\TextInput::make('terms_accepted_ip')
+                                    ->label('IP de Aceptación')
+                                    ->disabled()
+                                    ->dehydrated(false)
+                                    ->formatStateUsing(fn (?Client $record): string => 
+                                        $record && $record->terms_accepted_ip 
+                                            ? $record->terms_accepted_ip 
+                                            : 'N/A'
+                                    )
+                                    ->hiddenOn('create')
+                                    ->columnSpan(1),
+                                
+                                Forms\Components\Placeholder::make('terms_links')
+                                    ->label('Documentos Legales')
+                                    ->content(function (): \Illuminate\Support\HtmlString {
+                                        $html = '<div class="space-y-2">';
+                                        $html .= '<p class="text-sm text-gray-600 mb-3">Los documentos legales están disponibles en:</p>';
+                                        $html .= '<ul class="list-disc list-inside space-y-1 text-sm">';
+                                        $html .= '<li><a href="' . route('terms.show') . '" target="_blank" class="text-blue-600 hover:text-blue-800 hover:underline font-medium">Términos y Condiciones</a></li>';
+                                        $html .= '<li><a href="' . route('privacy.show') . '" target="_blank" class="text-blue-600 hover:text-blue-800 hover:underline font-medium">Política de Privacidad</a></li>';
+                                        $html .= '<li><a href="' . route('data-treatment.show') . '" target="_blank" class="text-blue-600 hover:text-blue-800 hover:underline font-medium">Política de Tratamiento de Datos</a></li>';
+                                        $html .= '</ul>';
+                                        $html .= '</div>';
+                                        return new \Illuminate\Support\HtmlString($html);
+                                    })
+                                    ->columnSpanFull(),
+                            ])->columns(2)
                     ])->columnSpanFull(),
             ]);
     }
@@ -235,6 +299,16 @@ class ClientResource extends Resource
                     ->boolean()
                     ->sortable()
                     ->tooltip('Controla el acceso al Portal B2B'),
+                
+                Tables\Columns\IconColumn::make('terms_accepted')
+                    ->label('TÉRMINOS')
+                    ->boolean()
+                    ->sortable()
+                    ->trueIcon('heroicon-o-check-circle')
+                    ->falseIcon('heroicon-o-x-circle')
+                    ->trueColor('success')
+                    ->falseColor('danger')
+                    ->tooltip('Indica si el cliente aceptó los términos y condiciones'),
                 
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nombre del Cliente')
@@ -251,6 +325,13 @@ class ClientResource extends Resource
                     ->money('COP')
                     ->sortable(),
                 
+                Tables\Columns\TextColumn::make('terms_accepted_at')
+                    ->label('Fecha Aceptación Términos')
+                    ->dateTime('d/m/Y H:i')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->placeholder('N/A'),
+                
                 Tables\Columns\TextColumn::make('user.estado')
                     ->label('Estado Usuario')
                     ->badge()
@@ -266,6 +347,16 @@ class ClientResource extends Resource
                 Filter::make('is_active')
                     ->query(fn (Builder $query): Builder => $query->where('is_active', true))
                     ->label('Clientes Activos (Portal)')
+                    ->toggle(),
+                    
+                Filter::make('terms_accepted')
+                    ->query(fn (Builder $query): Builder => $query->where('terms_accepted', true))
+                    ->label('Con Términos Aceptados')
+                    ->toggle(),
+                    
+                Filter::make('terms_not_accepted')
+                    ->query(fn (Builder $query): Builder => $query->where('terms_accepted', false)->orWhereNull('terms_accepted'))
+                    ->label('Sin Términos Aceptados')
                     ->toggle(),
                     
                 Filter::make('pending_approval')

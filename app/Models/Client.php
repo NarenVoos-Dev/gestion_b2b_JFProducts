@@ -24,11 +24,16 @@ class Client extends Model
         'credit_limit',
         'price_list_id',
         'is_active',     // <<-- NUEVO CAMPO
+        'terms_accepted',
+        'terms_accepted_at',
+        'terms_accepted_ip',
     ];
 
     protected $casts = [
         'is_active' => 'boolean', // <<-- CAST A BOOLEAN
         'credit_limit' => 'decimal:2',
+        'terms_accepted' => 'boolean',
+        'terms_accepted_at' => 'datetime',
     ];
 
     // Relaciones

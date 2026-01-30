@@ -34,6 +34,11 @@ Route::get('/registration-pending', function () {
     return view('auth.registration-pending');
 })->name('registration.pending')->middleware('guest');
 
+// Rutas de información legal
+Route::get('/terminos-y-condiciones', [\App\Http\Controllers\LegalController::class, 'showTerms'])->name('terms.show');
+Route::get('/politica-privacidad', [\App\Http\Controllers\LegalController::class, 'showPrivacy'])->name('privacy.show');
+Route::get('/politica-tratamiento-datos', [\App\Http\Controllers\LegalController::class, 'showDataTreatment'])->name('data-treatment.show');
+
 
 /*
 |--------------------------------------------------------------------------
