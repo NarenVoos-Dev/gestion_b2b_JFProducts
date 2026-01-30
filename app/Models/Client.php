@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Client extends Model
 {
     use HasFactory;
+    use \App\Traits\HasCities;
 
     protected $fillable = [
         'business_id',
@@ -19,6 +20,7 @@ class Client extends Model
         'phone1',        // <<-- NUEVO CAMPO
         'phone2',        // <<-- NUEVO CAMPO
         'address',
+        'city_id', // <<-- NUEVO CAMPO
         'credit_limit',
         'price_list_id',
         'is_active',     // <<-- NUEVO CAMPO
@@ -102,5 +104,9 @@ class Client extends Model
             'credit_utilization_percentage' => round($creditUtilization, 2),
             'is_over_limit' => $currentDebt > $this->credit_limit
         ];
+    }
+    public function getCityNameAttribute()
+    {
+        return $this->city_id ? self::getCityNameById($this->city_id) : null;
     }
 }

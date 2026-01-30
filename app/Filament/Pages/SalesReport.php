@@ -68,51 +68,60 @@ class SalesReport extends Page implements HasForms, HasActions
     {
         return $form
             ->schema([
-                DatePicker::make('date_from')
-                    ->label('Desde')
-                    ->default(now()->subMonth())
-                    ->native(false)
-                    ->maxDate(now()),
-                    
-                DatePicker::make('date_to')
-                    ->label('Hasta')
-                    ->default(now())
-                    ->native(false)
-                    ->maxDate(now()),
-                    
-                Select::make('status')
-                    ->label('Estado')
-                    ->options([
-                        'Facturado' => 'Facturado',
-                        'Finalizado' => 'Finalizado',
-                        'Pendiente' => 'Pendiente',
-                        'Cancelado' => 'Cancelado',
-                    ])
-                    ->nullable()
-                    ->placeholder('Todos los estados'),
-                    
-                Select::make('client_id')
-                    ->label('Cliente')
-                    ->options(Client::where('is_active', true)->pluck('name', 'id'))
-                    ->searchable()
-                    ->preload()
-                    ->nullable(),
-                    
-                Select::make('product_id')
-                    ->label('Producto')
-                    ->options(Product::where('is_active', true)->pluck('name', 'id'))
-                    ->searchable()
-                    ->preload()
-                    ->nullable(),
+                // Fila Superior: Cliente y Producto
+                \Filament\Forms\Components\Grid::make(2)
+                    ->schema([
+                        Select::make('client_id')
+                            ->label('Cliente')
+                            ->options(Client::where('is_active', true)->pluck('name', 'id'))
+                            ->searchable()
+                            ->preload()
+                            ->nullable(),
+                            
+                        Select::make('product_id')
+                            ->label('Producto')
+                            ->options(Product::where('is_active', true)->pluck('name', 'id'))
+                            ->searchable()
+                            ->preload()
+                            ->nullable(),
+                    ]),
+
+                // Fila Inferior: Fechas y Estado
+                \Filament\Forms\Components\Grid::make(3)
+                    ->schema([
+                        DatePicker::make('date_from')
+                            ->label('Desde')
+                            ->default(now()->subMonth())
+                            ->native(false)
+                            ->maxDate(now()),
+                            
+                        DatePicker::make('date_to')
+                            ->label('Hasta')
+                            ->default(now())
+                            ->native(false)
+                            ->maxDate(now()),
+                            
+                        Select::make('status')
+                            ->label('Estado')
+                            ->options([
+                                'Facturado' => 'Facturado',
+                                'Finalizado' => 'Finalizado',
+                                'Pendiente' => 'Pendiente',
+                                'Cancelado' => 'Cancelado',
+                            ])
+                            ->nullable()
+                            ->placeholder('Todos los estados'),
+                    ]),
             ])
-            ->columns(5);
+            ->columns(1);
     }
     
     // Obtener datos para cada reporte
     public function getSalesByOrderData()
     {
-        $query = DB::table('v_sales_by_order')
-            ->whereBetween('sale_date', [$this->date_from, $this->date_to]);
+        $query = \App\Models\Sale::query()
+            ->with(['client'])
+            ->whereBetween('date', [$this->date_from, $this->date_to]);
             
         if ($this->status) {
             $query->where('status', $this->status);
@@ -122,11 +131,15 @@ class SalesReport extends Page implements HasForms, HasActions
             $query->where('client_id', $this->client_id);
         }
         
+        // El filtro de producto ya no aplica si quitamos los detalles de producto,
+        // pero podemos mantenerlo si queremos ver "Pedidos que contienen X producto"
         if ($this->product_id) {
-            $query->where('product_id', $this->product_id);
+            $query->whereHas('items', function($q) {
+                $q->where('product_id', $this->product_id);
+            });
         }
         
-        return $query->orderBy('sale_date', 'desc')->get();
+        return $query->orderBy('date', 'desc')->get();
     }
     
     public function getSalesByClientData()
@@ -244,12 +257,7 @@ class SalesReport extends Page implements HasForms, HasActions
                         'sale_date' => 'Fecha',
                         'client_name' => 'Cliente',
                         'client_document' => 'Documento Cliente',
-                        'product_name' => 'Producto',
-                        'product_sku' => 'SKU',
-                        'quantity' => 'Cantidad',
-                        'price' => 'Precio',
-                        'subtotal' => 'Subtotal',
-                        'tax' => 'Impuesto',
+                        'city' => 'Ciudad',
                         'sale_total' => 'Total',
                         'status' => 'Estado',
                         'source' => 'Fuente',
@@ -321,9 +329,28 @@ class SalesReport extends Page implements HasForms, HasActions
                     return;
                 }
                 
-                // No filtrar los datos aquí, pasar todo el row completo
-                // El filtrado de columnas se hace en la clase Export
-                $filteredData = $reportData;
+                // Transformar datos según el tipo de reporte
+                if ($reportType === 'by_order') {
+                    $filteredData = $reportData->map(function($sale) {
+                        return [
+                            'invoice_number' => $sale->invoice_number,
+                            'sale_date' => $sale->date,
+                            'client_name' => $sale->client->name,
+                            'client_document' => $sale->client->document,
+                            'city' => $sale->client->city_name,
+                            'sale_total' => $sale->total,
+                            'status' => $sale->status,
+                            'source' => $sale->source,
+                        ];
+                    });
+                } else {
+                    $filteredData = $reportData->map(fn($row) => (array)$row);
+                }
+                
+                // Filtrar solo las columnas seleccionadas
+                $filteredData = $filteredData->map(function($row) use ($selectedColumns) {
+                    return array_intersect_key($row, array_flip($selectedColumns));
+                });
                 
                 // Obtener labels de columnas
                 $columnLabels = $this->getColumnLabels($reportType);
@@ -345,12 +372,7 @@ class SalesReport extends Page implements HasForms, HasActions
                 'sale_date' => 'Fecha',
                 'client_name' => 'Cliente',
                 'client_document' => 'Documento Cliente',
-                'product_name' => 'Producto',
-                'product_sku' => 'SKU',
-                'quantity' => 'Cantidad',
-                'price' => 'Precio',
-                'subtotal' => 'Subtotal',
-                'tax' => 'Impuesto',
+                'city' => 'Ciudad',
                 'sale_total' => 'Total',
                 'status' => 'Estado',
                 'source' => 'Fuente',
@@ -440,13 +462,6 @@ class SalesReport extends Page implements HasForms, HasActions
         );
     }
     
-    public function exportToPDF($reportType)
-    {
-        \Filament\Notifications\Notification::make()
-            ->title('Exportación a PDF')
-            ->body('La exportación a PDF estará disponible próximamente')
-            ->info()
-            ->send();
-    }
 }
+
 

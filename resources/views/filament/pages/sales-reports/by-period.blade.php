@@ -89,9 +89,8 @@
                     <x-filament::button wire:click="openExportModal('by_period')" color="success" size="sm" icon="heroicon-o-document-arrow-down">
                         Exportar Excel
                     </x-filament::button>
-                    <x-filament::button wire:click="exportToPDF('by_period')" color="danger" size="sm" icon="heroicon-o-document-arrow-down">
-                        Exportar PDF
-                    </x-filament::button>
+
+
                 </div>
             </div>
         </div>

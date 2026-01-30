@@ -91,8 +91,14 @@ class ClientResource extends Resource
                                     
                                 Forms\Components\TextInput::make('address')
                                     ->label('Dirección de Envío Principal')
-                                    ->maxLength(255)
-                                    ->columnSpanFull(),
+                                    ->maxLength(255),
+
+                                Forms\Components\Select::make('city_id')
+                                    ->label('Ciudad')
+                                    ->options(\App\Models\Client::getCitiesForSelect())
+                                    ->searchable()
+                                    ->preload()
+                                    ->required(),
                             ])->columns(2),
 
                         Forms\Components\Tabs\Tab::make('Contacto y Crédito')
